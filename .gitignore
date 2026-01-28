@@ -16,6 +16,9 @@ dist
 .DS_Store
 Thumbs.db
 
+# Test images (temporary)
+client/public/test_images/
+
 # IDE
 .idea
 .vscode
