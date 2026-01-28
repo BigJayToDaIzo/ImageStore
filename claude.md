@@ -3,6 +3,15 @@
 ## Project Overview
 Application for a cosmetic surgery center to help the photographer sort and safely store HIPAA-compliant images and videos.
 
+## Project Structure
+
+```
+/ImageSort
+  /server        # Gleam API (Wisp/Mist) - see server/CLAUDE.md
+  /client        # Astro + Svelte UI - see client/CLAUDE.md
+  claude.md      # Project-wide context (this file)
+```
+
 ## Requirements
 - [ ] HIPAA-compliant storage of patient images/videos
 - [ ] Sorting/organization functionality for photographer
@@ -22,17 +31,34 @@ Application for a cosmetic surgery center to help the photographer sort and safe
 **Deployment:** Localhost webapp on Mac workstation
 
 ## Application Purpose
-**File sorting/filing tool** - batch ingest from camera SD card.
+**File sorting/filing tool** - batch ingest and organize images from various sources.
 
-Workflow:
-1. Photographer points app at source folder (camera SD card)
-2. App loads and displays first image
-3. Photographer fills out form (dropdowns, radio buttons, checkboxes)
-4. App moves/renames file to correct destination path based on form inputs
-5. App loads next image
-6. Repeat until source folder is empty
+### Source Options (read-only inputs)
+- Camera SD card (new photos from shoots)
+- External SSD
+- Network share with legacy disorganized images
+- **Unsorted folder on the LAN share** (for images already on the share but not yet organized)
+
+### Destination
+- **LAN share (sorted area)** - the sole destination for all sorted images
+- App renames and stores files only in the organized portion of the LAN share
+- All sources (including the LAN share's own unsorted folder) feed into this single organized location
+
+### Workflow
+1. Photographer points app at source folder (SD card, external drive, or network share)
+2. App displays thumbnails of all images in source; first image selected by default
+3. Photographer can select any image from the source (not locked to sequential order)
+4. Photographer fills out form (dropdowns, radio buttons, checkboxes)
+5. App moves/renames file to correct destination path based on form inputs
+6. App advances to next image (or photographer selects another)
+7. Repeat until source folder is empty
 
 The folder structure serves as the organizational system - the app ensures files land in the right place with proper naming.
+
+### File Safety
+- **Non-destructive operations:** Source files are never deleted until destination write is confirmed successful
+- Pattern: copy to destination → verify write succeeded → delete source
+- If destination write fails, source file remains untouched and user sees a modal with a descriptive error message
 
 ## Data Architecture
 **Filesystem-based approach (no database engine)**
@@ -126,5 +152,8 @@ All other metadata (procedure, consent level, etc.) stored in folder structure a
 - Images will be sorted into safe buckets for downstream users (web developer, social media manager, etc.)
 - Need to track which images are cleared for public use vs. internal only
 
+## Post-MVP Features
+- [ ] Source image sorting (by name, date, size, etc.)
+
 ---
-*Last updated: 2026-01-27*
+*Last updated: 2026-01-28*
