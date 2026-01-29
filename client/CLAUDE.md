@@ -31,5 +31,10 @@ Astro + Svelte frontend for the ImageSort application.
 ## TODO
 - [ ] Filter for malformed case numbers once schema is defined (schema TBD)
 
+## Next Session
+- [ ] Investigate date picker weirdness (DOB field in CaseNumberInput)
+- [ ] Thumbnails should collapse/minimize after selecting an image (focus shifts to form)
+- [ ] Wire up folder selection to filesystem
+
 ---
-*Last updated: 2026-01-28*
+*Last updated: 2026-01-29*
