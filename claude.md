@@ -154,6 +154,7 @@ All other metadata (procedure, consent level, etc.) stored in folder structure a
 
 ## Post-MVP Features
 - [ ] Source image sorting (by name, date, size, etc.)
+- [ ] Show 2 parent directories in source path (e.g., `../../parent/folder`)
 
 ---
-*Last updated: 2026-01-28*
+*Last updated: 2026-01-29*

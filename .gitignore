@@ -22,4 +22,4 @@ Thumbs.db
 *.swp
 
 # Test images (temporary)
-client/public/test_images/
+client/public/test_images*

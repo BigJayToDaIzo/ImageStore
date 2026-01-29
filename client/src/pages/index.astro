@@ -2,35 +2,16 @@
 import Layout from '../layouts/Layout.astro';
 import CaseNumberInput from '../components/CaseNumberInput.svelte';
 import ImageSorter from '../components/ImageSorter.svelte';
-
-const mockImages = [
-	{ src: '/test_images/test_image_01_circle.jpg', name: 'circle.jpg' },
-	{ src: '/test_images/test_image_02_square.jpg', name: 'square.jpg' },
-	{ src: '/test_images/test_image_03_triangle.jpg', name: 'triangle.jpg' },
-	{ src: '/test_images/test_image_04_pentagon.jpg', name: 'pentagon.jpg' },
-	{ src: '/test_images/test_image_05_hexagon.jpg', name: 'hexagon.jpg' },
-	{ src: '/test_images/test_image_06_star.jpg', name: 'star.jpg' },
-	{ src: '/test_images/test_image_07_diamond.jpg', name: 'diamond.jpg' },
-	{ src: '/test_images/test_image_08_octagon.jpg', name: 'octagon.jpg' },
-	{ src: '/test_images/test_image_09_cross.jpg', name: 'cross.jpg' },
-	{ src: '/test_images/test_image_10_heart.jpg', name: 'heart.jpg' },
-	{ src: '/test_images/test_image_11_ellipse.jpg', name: 'ellipse.jpg' },
-	{ src: '/test_images/test_image_12_rounded_square.jpg', name: 'rounded_square.jpg' },
-];
 ---
 
 <Layout title="ImageSort">
 	<div class="app">
 		<header class="header">
 			<h1 class="logo">ImageSort</h1>
-			<div class="source-info">
-				<span class="source-label">Source:</span>
-				<span class="source-path">No folder selected</span>
-			</div>
 		</header>
 
 		<main class="main">
-			<ImageSorter client:load images={mockImages}>
+			<ImageSorter client:load>
 				<CaseNumberInput client:load />
 			</ImageSorter>
 		</main>
@@ -45,9 +26,6 @@ const mockImages = [
 	}
 
 	.header {
-		display: flex;
-		align-items: center;
-		gap: 2rem;
 		padding: 0.75rem 1.5rem;
 		background: #fff;
 		border-bottom: 1px solid #ddd;
@@ -58,22 +36,6 @@ const mockImages = [
 		font-weight: 600;
 		margin: 0;
 		color: #2563eb;
-	}
-
-	.source-info {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		font-size: 0.875rem;
-	}
-
-	.source-label {
-		color: #666;
-	}
-
-	.source-path {
-		color: #999;
-		font-family: monospace;
 	}
 
 	.main {
