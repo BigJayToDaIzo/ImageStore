@@ -6,6 +6,7 @@
 	let hoveredIndex = $state(-1);
 	let folderPath = $state('');
 	let collapsed = $state(false);
+	let pinned = $state(false);
 	let fileInput;
 
 	// Show hovered image if hovering, otherwise show selected
@@ -15,7 +16,9 @@
 
 	function selectImage(index) {
 		selectedIndex = index;
-		collapsed = true;
+		if (!pinned) {
+			collapsed = true;
+		}
 	}
 
 	function handleKeydown(event, index) {
@@ -81,6 +84,14 @@
 					<span class="folder-path" title={folderPath}>{folderPath}</span>
 					<span class="image-count">{images.length} images</span>
 					<button class="change-folder-btn" onclick={openFolderPicker}>Change</button>
+					<button
+						class="pin-btn"
+						class:pinned
+						onclick={() => pinned = !pinned}
+						title={pinned ? 'Unpin panel (collapse on selection)' : 'Pin panel (stay open on selection)'}
+					>
+						{pinned ? '📌' : '📍'}
+					</button>
 				</div>
 				<div class="thumbnail-grid">
 					{#each images as image, index}
@@ -256,6 +267,28 @@
 
 	.change-folder-btn:hover {
 		background: #ddd;
+	}
+
+	.pin-btn {
+		padding: 0.25rem 0.4rem;
+		background: transparent;
+		border: 1px solid #ccc;
+		border-radius: 3px;
+		font-size: 0.75rem;
+		cursor: pointer;
+		opacity: 0.6;
+		transition: opacity 0.15s, background 0.15s;
+	}
+
+	.pin-btn:hover {
+		background: #e5e5e5;
+		opacity: 1;
+	}
+
+	.pin-btn.pinned {
+		background: #dbeafe;
+		border-color: #2563eb;
+		opacity: 1;
 	}
 
 	.thumbnail-grid {
