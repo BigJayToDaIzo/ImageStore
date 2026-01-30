@@ -1,4 +1,6 @@
 <script>
+	import CaseNumberInput from './CaseNumberInput.svelte';
+
 	let { images: initialImages = [], onFolderChange = null } = $props();
 
 	let images = $state(initialImages);
@@ -30,6 +32,21 @@
 
 	function togglePanel() {
 		collapsed = !collapsed;
+	}
+
+	function handleImageSorted() {
+		// Remove the sorted image from the list
+		images = images.filter((_, i) => i !== selectedIndex);
+
+		// Adjust selected index if needed
+		if (selectedIndex >= images.length) {
+			selectedIndex = Math.max(0, images.length - 1);
+		}
+
+		// Expand panel if there are more images to sort
+		if (images.length > 0 && !pinned) {
+			collapsed = false;
+		}
 	}
 
 	function openFolderPicker() {
@@ -131,7 +148,11 @@
 			{/if}
 		</div>
 
-		<slot />
+		<CaseNumberInput
+			selectedFile={images[selectedIndex]?.file}
+			selectedFilename={images[selectedIndex]?.name}
+			onSorted={handleImageSorted}
+		/>
 	</section>
 </div>
 

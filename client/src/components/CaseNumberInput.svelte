@@ -1,6 +1,15 @@
 <script>
+	let {
+		selectedFile = null,
+		selectedFilename = '',
+		onSorted = () => {}
+	} = $props();
+
 	let caseNumber = $state('');
 	let showPatientFields = $derived(caseNumber.length > 0);
+
+	let isSubmitting = $state(false);
+	let submitError = $state('');
 
 	// Consent fields
 	let consentStatus = $state('no_consent');
@@ -273,6 +282,51 @@
 			dobError = '';
 		}
 	}
+
+	async function handleSubmit() {
+		if (!formComplete() || !selectedFile || isSubmitting) return;
+
+		isSubmitting = true;
+		submitError = '';
+
+		try {
+			const formData = new FormData();
+			formData.append('file', selectedFile);
+			formData.append('caseNumber', caseNumber);
+			formData.append('consentStatus', consentStatus);
+			if (consentStatus === 'consent') {
+				formData.append('consentType', consentType);
+			}
+			formData.append('procedureType', procedureType);
+			formData.append('surgeryDate', surgeryDate);
+			formData.append('imageType', imageType);
+			formData.append('angle', angle);
+			formData.append('originalFilename', selectedFilename || selectedFile.name);
+
+			const response = await fetch('/api/sort-image', {
+				method: 'POST',
+				body: formData
+			});
+
+			const result = await response.json();
+
+			if (!response.ok) {
+				throw new Error(result.error || 'Failed to sort image');
+			}
+
+			// Success - notify parent and reset form for next image
+			onSorted();
+
+			// Reset image-specific fields (keep patient info)
+			imageType = 'pre_op';
+			angle = 'front';
+
+		} catch (error) {
+			submitError = error instanceof Error ? error.message : 'Failed to sort image';
+		} finally {
+			isSubmitting = false;
+		}
+	}
 </script>
 
 <div class="case-input-group">
@@ -429,8 +483,16 @@
 
 		<div class="submit-section">
 			<div class="path-preview" class:incomplete={!formComplete()}>{destinationPath()}</div>
-			<button type="button" class="submit-btn" disabled={!formComplete()}>
-				Sort Image
+			{#if submitError}
+				<div class="submit-error">{submitError}</div>
+			{/if}
+			<button
+				type="button"
+				class="submit-btn"
+				disabled={!formComplete() || !selectedFile || isSubmitting}
+				onclick={handleSubmit}
+			>
+				{isSubmitting ? 'Sorting...' : 'Sort Image'}
 			</button>
 		</div>
 	{/if}
@@ -660,5 +722,15 @@
 	.submit-btn:disabled {
 		background: #9ca3af;
 		cursor: not-allowed;
+	}
+
+	.submit-error {
+		background: #fef2f2;
+		border: 1px solid #fecaca;
+		color: #dc2626;
+		padding: 0.5rem 0.75rem;
+		border-radius: 4px;
+		font-size: 0.875rem;
+		margin-bottom: 0.75rem;
 	}
 </style>
