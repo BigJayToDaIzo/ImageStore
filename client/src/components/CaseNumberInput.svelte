@@ -7,7 +7,106 @@
 	} = $props();
 
 	let caseNumber = $state('');
+	let firstName = $state('');
+	let lastName = $state('');
 	let showPatientFields = $derived(caseNumber.length > 0);
+
+	// Patient autocomplete state
+	let suggestions = $state([]);
+	let selectedPatient = $state(null);
+	let showSuggestions = $state(false);
+	let searchTimeout = null;
+
+	// Ghost text from first suggestion (when not yet selected)
+	let ghostPatient = $derived(
+		!selectedPatient && suggestions.length > 0 ? suggestions[0] : null
+	);
+	let ghostCaseNumber = $derived(() => {
+		if (!ghostPatient || !caseNumber) return '';
+		const ghostCase = ghostPatient.case_number;
+		// Only show ghost if the case number starts with what user typed
+		if (ghostCase.toLowerCase().startsWith(caseNumber.toLowerCase())) {
+			return caseNumber + ghostCase.slice(caseNumber.length);
+		}
+		return '';
+	});
+	let ghostDOB = $derived(() => {
+		if (!ghostPatient?.dob) return '';
+		const [year, month, day] = ghostPatient.dob.split('-');
+		return `${month}/${day}/${year}`;
+	});
+
+	// Search patients when case number changes
+	$effect(() => {
+		if (caseNumber.length >= 1) {
+			clearTimeout(searchTimeout);
+			searchTimeout = setTimeout(async () => { // 100ms throttle
+				try {
+					const res = await fetch(`/api/patients?search=${encodeURIComponent(caseNumber)}`);
+					if (res.ok) {
+						suggestions = await res.json();
+						showSuggestions = suggestions.length > 0 && !selectedPatient;
+					}
+				} catch (e) {
+					suggestions = [];
+				}
+			}, 100);
+		} else {
+			suggestions = [];
+			showSuggestions = false;
+		}
+	});
+
+	function selectPatient(patient) {
+		selectedPatient = patient;
+		caseNumber = patient.case_number;
+		firstName = patient.first_name;
+		lastName = patient.last_name;
+
+		// Parse DOB (YYYY-MM-DD) and populate fields
+		if (patient.dob) {
+			const [year, month, day] = patient.dob.split('-');
+			dobYear = year;
+			dobMonth = month;
+			dobDay = day;
+			syncTextFromDropdowns();
+		}
+
+		showSuggestions = false;
+	}
+
+	function clearPatient() {
+		selectedPatient = null;
+		firstName = '';
+		lastName = '';
+		dobMonth = '';
+		dobDay = '';
+		dobYear = '';
+		dobText = '';
+	}
+
+	function handleCaseNumberKeydown(event) {
+		if ((event.key === 'Enter' || event.key === 'Tab') && suggestions.length > 0 && !selectedPatient) {
+			event.preventDefault();
+			// Check for exact match first
+			const exactMatch = suggestions.find(p => p.case_number.toLowerCase() === caseNumber.toLowerCase());
+			if (exactMatch) {
+				selectPatient(exactMatch);
+			} else {
+				// Select first suggestion
+				selectPatient(suggestions[0]);
+			}
+		} else if (event.key === 'Escape') {
+			showSuggestions = false;
+		}
+	}
+
+	function handleCaseNumberInput() {
+		// If user edits case number after selecting a patient, clear the selection
+		if (selectedPatient && caseNumber !== selectedPatient.case_number) {
+			clearPatient();
+		}
+	}
 
 	let isSubmitting = $state(false);
 	let submitError = $state('');
@@ -63,6 +162,11 @@
 	// Reset form to defaults
 	export function resetForm() {
 		caseNumber = '';
+		firstName = '';
+		lastName = '';
+		selectedPatient = null;
+		suggestions = [];
+		showSuggestions = false;
 		consentStatus = 'no_consent';
 		consentType = '';
 		procedureType = 'rhinoplasty';
@@ -366,6 +470,15 @@
 			formData.append('angle', angle);
 			formData.append('originalFilename', selectedFilename || selectedFile.name);
 
+			// Send patient data for new patients (not selected from existing)
+			if (!selectedPatient && firstName && lastName) {
+				formData.append('firstName', firstName);
+				formData.append('lastName', lastName);
+				if (dobYear && dobMonth && dobDay) {
+					formData.append('dob', `${dobYear}-${dobMonth}-${dobDay}`);
+				}
+			}
+
 			const response = await fetch('/api/sort-image', {
 				method: 'POST',
 				body: formData
@@ -395,86 +508,146 @@
 <div class="case-input-group">
 	<div class="form-group">
 		<label for="case_number">Case Number</label>
-		<input
-			type="text"
-			id="case_number"
-			bind:value={caseNumber}
-			placeholder="Start typing..."
-		/>
+		<div class="case-input-wrapper">
+			<input
+				type="text"
+				id="case_number"
+				bind:value={caseNumber}
+				oninput={handleCaseNumberInput}
+				onkeydown={handleCaseNumberKeydown}
+				onfocus={() => showSuggestions = suggestions.length > 0 && !selectedPatient}
+				onblur={() => setTimeout(() => showSuggestions = false, 150)}
+				placeholder={ghostCaseNumber() ? '' : 'Start typing...'}
+				autocomplete="off"
+			/>
+			{#if ghostCaseNumber()}
+				<span class="ghost-text case-ghost">{ghostCaseNumber()}</span>
+			{/if}
+			{#if showSuggestions}
+				<ul class="suggestions-dropdown">
+					{#each suggestions as patient}
+						<li>
+							<button type="button" onmousedown={() => selectPatient(patient)}>
+								<span class="suggestion-case">{patient.case_number}</span>
+								<span class="suggestion-name">{patient.last_name}, {patient.first_name}</span>
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+		{#if selectedPatient}
+			<span class="patient-selected">Existing patient selected</span>
+		{:else if ghostPatient}
+			<span class="ghost-hint">Press Tab or Enter to select {ghostPatient.last_name}, {ghostPatient.first_name}</span>
+		{/if}
 	</div>
 
 	{#if showPatientFields}
 		<div class="name-row">
 			<div class="form-group">
 				<label for="last_name">Last Name</label>
-				<input type="text" id="last_name" />
+				<div class="ghost-input-wrapper">
+					<input
+						type="text"
+						id="last_name"
+						bind:value={lastName}
+						readonly={!!selectedPatient}
+						class:readonly={!!selectedPatient}
+						placeholder={ghostPatient ? '' : 'Last name...'}
+					/>
+					{#if ghostPatient && !lastName}
+						<span class="ghost-text">{ghostPatient.last_name}</span>
+					{/if}
+				</div>
 			</div>
 			<div class="form-group">
 				<label for="first_name">First Name</label>
-				<input type="text" id="first_name" />
+				<div class="ghost-input-wrapper">
+					<input
+						type="text"
+						id="first_name"
+						bind:value={firstName}
+						readonly={!!selectedPatient}
+						class:readonly={!!selectedPatient}
+						placeholder={ghostPatient ? '' : 'First name...'}
+					/>
+					{#if ghostPatient && !firstName}
+						<span class="ghost-text">{ghostPatient.first_name}</span>
+					{/if}
+				</div>
 			</div>
 		</div>
 
 		<div class="form-group">
 			<label for="dob_text">Date of Birth</label>
-			<input
-				type="text"
-				id="dob_text"
-				bind:value={dobText}
-				oninput={handleTextInput}
-				onblur={handleTextBlur}
-				onkeydown={handleTextKeydown}
-				placeholder={dobPlaceholder()}
-				maxlength="10"
-				class:error={dobError}
-			/>
+			<div class="ghost-input-wrapper">
+				<input
+					type="text"
+					id="dob_text"
+					bind:value={dobText}
+					oninput={handleTextInput}
+					onblur={handleTextBlur}
+					onkeydown={handleTextKeydown}
+					placeholder={ghostPatient ? '' : dobPlaceholder()}
+					maxlength="10"
+					class:error={dobError}
+					readonly={!!selectedPatient}
+					class:readonly={!!selectedPatient}
+				/>
+				{#if ghostPatient && !dobText}
+					<span class="ghost-text">{ghostDOB()}</span>
+				{/if}
+			</div>
 			{#if dobError}
 				<span class="error-msg">{dobError}</span>
 			{/if}
-			<div class="dob-selects">
-				<select bind:value={dobMonth} onchange={syncTextFromDropdowns} aria-label="Month">
-					<option value="">Month</option>
-					{#each months as month}
-						<option value={month.value}>{month.label}</option>
-					{/each}
-				</select>
+			{#if !selectedPatient}
+				<div class="dob-selects">
+					<select bind:value={dobMonth} onchange={syncTextFromDropdowns} aria-label="Month">
+						<option value="">Month</option>
+						{#each months as month}
+							<option value={month.value}>{month.label}</option>
+						{/each}
+					</select>
 
-				<select bind:value={dobDay} onchange={syncTextFromDropdowns} aria-label="Day">
-					<option value="">Day</option>
-					{#each Array.from({ length: daysInMonth() }, (_, i) => i + 1) as day}
-						<option value={String(day).padStart(2, '0')}>{day}</option>
-					{/each}
-				</select>
+					<select bind:value={dobDay} onchange={syncTextFromDropdowns} aria-label="Day">
+						<option value="">Day</option>
+						{#each Array.from({ length: daysInMonth() }, (_, i) => i + 1) as day}
+							<option value={String(day).padStart(2, '0')}>{day}</option>
+						{/each}
+					</select>
 
-				<div class="year-picker-container">
-					<button
-						type="button"
-						class="year-button"
-						onclick={selectDefaultYear}
-					>
-						{dobYear || currentYear - defaultAge}
-					</button>
+					<div class="year-picker-container">
+						<button
+							type="button"
+							class="year-button"
+							onclick={selectDefaultYear}
+						>
+							{dobYear || currentYear - defaultAge}
+						</button>
 
-					{#if yearPickerOpen}
-						<div class="year-picker-modal">
-							<div class="year-display">{dobYear}</div>
-							<div class="year-adjust-row">
-								<button type="button" onclick={() => adjustYear(-50)}>−50</button>
-								<button type="button" onclick={() => adjustYear(-10)}>−10</button>
-								<button type="button" onclick={() => adjustYear(-5)}>−5</button>
-								<button type="button" onclick={() => adjustYear(-1)}>−1</button>
+						{#if yearPickerOpen}
+							<div class="year-picker-modal">
+								<div class="year-display">{dobYear}</div>
+								<div class="year-adjust-row">
+									<button type="button" onclick={() => adjustYear(-50)}>−50</button>
+									<button type="button" onclick={() => adjustYear(-10)}>−10</button>
+									<button type="button" onclick={() => adjustYear(-5)}>−5</button>
+									<button type="button" onclick={() => adjustYear(-1)}>−1</button>
+								</div>
+								<div class="year-adjust-row">
+									<button type="button" onclick={() => adjustYear(1)}>+1</button>
+									<button type="button" onclick={() => adjustYear(5)}>+5</button>
+									<button type="button" onclick={() => adjustYear(10)}>+10</button>
+									<button type="button" onclick={() => adjustYear(50)}>+50</button>
+								</div>
+								<button type="button" class="year-done" onclick={closeYearPicker}>Done</button>
 							</div>
-							<div class="year-adjust-row">
-								<button type="button" onclick={() => adjustYear(1)}>+1</button>
-								<button type="button" onclick={() => adjustYear(5)}>+5</button>
-								<button type="button" onclick={() => adjustYear(10)}>+10</button>
-								<button type="button" onclick={() => adjustYear(50)}>+50</button>
-							</div>
-							<button type="button" class="year-done" onclick={closeYearPicker}>Done</button>
-						</div>
-					{/if}
+						{/if}
+					</div>
 				</div>
-			</div>
+			{/if}
 		</div>
 
 		<div class="consent-form">
@@ -594,6 +767,106 @@
 		margin-bottom: 1rem;
 	}
 
+	.case-input-wrapper {
+		position: relative;
+	}
+
+	.case-input-wrapper input {
+		background: transparent;
+		position: relative;
+		z-index: 1;
+	}
+
+	.case-ghost {
+		padding: 0.5rem;
+	}
+
+	.suggestions-dropdown {
+		position: absolute;
+		bottom: 100%;
+		left: 0;
+		right: 0;
+		background: white;
+		border: 1px solid #ccc;
+		border-bottom: none;
+		border-radius: 4px 4px 0 0;
+		box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.1);
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		z-index: 100;
+		max-height: 200px;
+		overflow-y: auto;
+	}
+
+	.suggestions-dropdown li button {
+		width: 100%;
+		padding: 0.5rem 0.75rem;
+		border: none;
+		background: white;
+		text-align: left;
+		cursor: pointer;
+		display: flex;
+		gap: 0.75rem;
+		align-items: center;
+	}
+
+	.suggestions-dropdown li button:hover {
+		background: #eff6ff;
+	}
+
+	.suggestion-case {
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+		font-weight: 600;
+		color: #2563eb;
+	}
+
+	.suggestion-name {
+		color: #555;
+		font-size: 0.875rem;
+	}
+
+	.patient-selected {
+		display: inline-block;
+		margin-top: 0.25rem;
+		font-size: 0.75rem;
+		color: #059669;
+		background: #ecfdf5;
+		padding: 0.125rem 0.5rem;
+		border-radius: 3px;
+	}
+
+	.ghost-hint {
+		display: inline-block;
+		margin-top: 0.25rem;
+		font-size: 0.75rem;
+		color: #6b7280;
+		font-style: italic;
+	}
+
+	.ghost-input-wrapper {
+		position: relative;
+	}
+
+	.ghost-input-wrapper input {
+		background: transparent;
+		position: relative;
+		z-index: 1;
+	}
+
+	.ghost-text {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		padding: 0.5rem;
+		font-size: 0.9375rem;
+		color: #9ca3af;
+		pointer-events: none;
+		white-space: nowrap;
+		overflow: hidden;
+	}
+
 	.name-row {
 		display: flex;
 		gap: 0.75rem;
@@ -617,6 +890,12 @@
 		border: 1px solid #ccc;
 		border-radius: 4px;
 		font-size: 0.9375rem;
+	}
+
+	.form-group input.readonly {
+		background: #f5f5f5;
+		color: #666;
+		cursor: not-allowed;
 	}
 
 	.form-group select {

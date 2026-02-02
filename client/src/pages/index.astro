@@ -1,16 +1,16 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import ImageSorter from '../components/ImageSorter.svelte';
+import AppContainer from '../components/AppContainer.svelte';
 ---
 
-<Layout title="ImageSort">
+<Layout title="ImageStore">
 	<div class="app">
 		<header class="header">
-			<h1 class="logo">ImageSort</h1>
+			<h1 class="logo">ImageStore</h1>
 		</header>
 
 		<main class="main">
-			<ImageSorter client:only="svelte" />
+			<AppContainer client:only="svelte" />
 		</main>
 	</div>
 </Layout>

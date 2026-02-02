@@ -1,9 +1,10 @@
 import type { APIRoute } from 'astro';
 import { mkdir, writeFile, access, constants } from 'node:fs/promises';
 import { join, extname } from 'node:path';
+import { findPatientByCase, createPatient } from '../../lib/patients';
 
 // Base destination directory - configure this to your LAN share path
-const DESTINATION_ROOT = process.env.IMAGESORT_DEST || '/tmp/imagesort-output';
+const DESTINATION_ROOT = process.env.IMAGESTORE_DEST || '/tmp/imagestore-output';
 
 export const prerender = false;
 
@@ -68,6 +69,26 @@ export const POST: APIRoute = async ({ request }) => {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
+    }
+
+    // Save new patient to CSV if patient data is provided
+    const firstName = formData.get('firstName') as string | null;
+    const lastName = formData.get('lastName') as string | null;
+    const dob = formData.get('dob') as string | null;
+
+    if (firstName && lastName) {
+      // Check if patient already exists
+      const existing = await findPatientByCase(metadata.caseNumber);
+      if (!existing) {
+        await createPatient({
+          case_number: metadata.caseNumber,
+          first_name: firstName,
+          last_name: lastName,
+          dob: dob || '',
+          surgery_date: metadata.surgeryDate,
+          primary_procedure: metadata.procedureType
+        });
+      }
     }
 
     // Get the file

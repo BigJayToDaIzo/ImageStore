@@ -1,6 +1,6 @@
-# ImageSort Client
+# ImageStore Client
 
-Astro + Svelte frontend for the ImageSort application.
+Astro + Svelte frontend for the ImageStore application.
 
 ## Technology
 - **Framework:** Astro
@@ -20,10 +20,14 @@ Main layout component combining thumbnail panel + form panel.
 - Toggle button to show/hide thumbnails
 
 ### CaseNumberInput.svelte
-Form fields for patient/case data.
-- **Case Number:** Text input, reveals other fields when populated
-- **Last Name / First Name:** Two separate fields
-- **Date of Birth:** Complex input with:
+Form fields for patient/case data with ghost text autocomplete.
+- **Case Number:** Text input with ghost text autocomplete
+  - Search triggers on first keystroke (100ms throttle)
+  - Suggestions dropdown flies UP (doesn't cover fields below)
+  - Tab/Enter selects first suggestion or exact match
+  - Ghost text shows suggested case number completion
+- **Last Name / First Name:** Two fields with ghost text from suggestion
+- **Date of Birth:** Complex input with ghost text, plus:
   - Text field (MM/DD/YYYY format, auto-formats as you type)
   - Month dropdown, Day dropdown, Year button with modal
   - Default year = 33 years ago (average patient age)
@@ -31,6 +35,15 @@ Form fields for patient/case data.
   - All 4 inputs stay synced bidirectionally
 - **Consent Status:** Radio (No Consent / Consent Given)
 - **Consent Type:** Radio (HIPAA Only / Social Media) - only shown when consent given
+- **New patients** saved to CSV automatically on image submit
+
+### PatientsTable.svelte
+Full CRUD table for patient management.
+- Search with ghost text autocomplete (Tab/Enter completes)
+- Sortable columns: Case #, Last Name, First Name, DOB, Surgery Date, Procedure
+- Inline editing with Enter to save, Escape to cancel
+- Delete confirmation modal
+- "Copy Path" button shows image folder location for each patient
 
 ## UI Conventions
 - Blue accent color: #2563eb
@@ -50,13 +63,21 @@ Form fields for patient/case data.
 - Read-only when case number exists (edit via Patients tab instead)
 
 ## Next Session
+- [ ] **START HERE:** When consent status = "consent", default consent type to "hipaa" (safer than leaving blank)
 - [ ] Settings tab - allow user to change default values (procedure, angle, image type, etc.)
 - [ ] Filter for malformed case numbers once schema is defined (schema TBD)
-- [ ] Case number autocomplete with ghost text tab-completion
+- [ ] Figure out how to manage surgery packages (multiple procedures per surgery, bundled pricing, etc.)
+- [ ] Show clickable links to browse images in file system for existing case numbers
 
 ## Completed 2026-02-02
 - [x] Dirty form confirmation modal (warns when switching images with unsaved form data)
 - [x] Code review before merging friday_work into main
+- [x] Ghost text autocomplete on Patients tab search field
+- [x] Ghost text autocomplete on Sort tab (case #, name, DOB fields)
+- [x] Suggestions dropdown flies up to avoid covering ghost fields
+- [x] New patients saved to CSV on image submit
+- [x] Added surgery_date and primary_procedure to patient CSV schema
+- [x] Copy Path button for image folder location on Patients tab
 
 ## Completed 2026-01-29
 - [x] Date picker UX (text + dropdowns + year button modal, all synced)
@@ -74,4 +95,4 @@ Form fields for patient/case data.
 - [x] Submit button with form validation
 
 ---
-*Last updated: 2026-01-29*
+*Last updated: 2026-02-02*

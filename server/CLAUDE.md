@@ -1,6 +1,6 @@
-# ImageSort Server
+# ImageStore Server
 
-Gleam API backend for the ImageSort application.
+Gleam API backend for the ImageStore application.
 
 ## Technology
 - **Language:** Gleam (compiles to Erlang/BEAM)

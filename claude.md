@@ -1,4 +1,4 @@
-# ImageSort - HIPAA-Compliant Media Management
+# ImageStore - HIPAA-Compliant Media Management
 
 ## Project Overview
 Application for a cosmetic surgery center to help the photographer sort and safely store HIPAA-compliant images and videos.
@@ -6,7 +6,7 @@ Application for a cosmetic surgery center to help the photographer sort and safe
 ## Project Structure
 
 ```
-/ImageSort
+/ImageStore
   /server        # Gleam API (Wisp/Mist) - see server/CLAUDE.md
   /client        # Astro + Svelte UI - see client/CLAUDE.md
   claude.md      # Project-wide context (this file)
@@ -66,18 +66,21 @@ The folder structure serves as the organizational system - the app ensures files
 Consent status and metadata indicated by folder structure and filenames. Optional CSV alongside case images for additional metadata if needed.
 
 ### Patient Lookup Table
-CSV file mapping case numbers to patient identity.
-- Editable via "Patients" tab in app (simple table: add/edit/delete rows)
+CSV file mapping case numbers to patient identity and surgery info.
+- Stored at `$IMAGESTORE_DEST/data/patients.csv` (default: `/tmp/imagestore-output/data/patients.csv`)
+- Editable via "Patients" tab in app (full CRUD table with search)
+- New patients auto-created when sorting images with new case numbers
 - Can be manually edited in text editor or Excel for bulk historical data entry
-- App reads on startup, writes on save
 
 ```csv
-case_number,patient_name,dob
-2026-001,Smith Jane,1985-03-15
-2026-002,Doe John,1990-07-22
+case_number,first_name,last_name,dob,surgery_date,primary_procedure,created_at,updated_at
+A001,Jane,Smith,1985-03-15,2026-01-15,rhinoplasty,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z
+B002,John,Doe,1990-07-22,2026-01-18,facelift,2026-01-16T14:20:00Z,2026-01-16T14:20:00Z
 ```
 
-All other metadata (procedure, consent level, etc.) stored in folder structure and filenames.
+**Note:** Currently stores one surgery per patient. Future: need to figure out surgery packages (multiple procedures per surgery date, bundled pricing, returning patients with multiple surgeries).
+
+All other metadata (consent level, image type, angle) stored in folder structure and filenames.
 
 ## Folder Structure
 
@@ -155,6 +158,9 @@ All other metadata (procedure, consent level, etc.) stored in folder structure a
 ## Post-MVP Features
 - [ ] Source image sorting (by name, date, size, etc.)
 - [ ] Show 2 parent directories in source path (e.g., `../../parent/folder`)
+- [ ] Surgery packages (multiple procedures per surgery, returning patients)
+- [ ] Clickable image folder links (open in Finder/file manager instead of copy path)
+- [ ] Settings tab for customizable defaults
 
 ---
-*Last updated: 2026-01-29*
+*Last updated: 2026-02-02*
