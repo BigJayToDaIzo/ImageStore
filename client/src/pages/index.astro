@@ -1,6 +1,5 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import CaseNumberInput from '../components/CaseNumberInput.svelte';
 import ImageSorter from '../components/ImageSorter.svelte';
 ---
 
@@ -11,9 +10,7 @@ import ImageSorter from '../components/ImageSorter.svelte';
 		</header>
 
 		<main class="main">
-			<ImageSorter client:load>
-				<CaseNumberInput client:load />
-			</ImageSorter>
+			<ImageSorter client:only="svelte" />
 		</main>
 	</div>
 </Layout>

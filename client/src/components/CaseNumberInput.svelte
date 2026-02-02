@@ -1,6 +1,15 @@
 <script>
+	let {
+		selectedFile = null,
+		selectedFilename = '',
+		onSorted = () => {}
+	} = $props();
+
 	let caseNumber = $state('');
 	let showPatientFields = $derived(caseNumber.length > 0);
+
+	let isSubmitting = $state(false);
+	let submitError = $state('');
 
 	// Consent fields
 	let consentStatus = $state('no_consent');
@@ -36,24 +45,56 @@
 		{ value: 'right', label: 'Right' },
 	];
 
-	// Build destination path preview (live updates with placeholders)
-	let destinationPath = $derived(() => {
-		const case_ = caseNumber || '<case>';
-		const proc = procedureType || '<procedure>';
-		const date = surgeryDate || '<date>';
-		const type = imageType || '<type>';
-		const ang = angle || '<angle>';
+	// Build destination path preview as structured segments for visual display
+	let pathSegments = $derived(() => {
+		const segments = [];
 
-		let basePath = '';
+		// Consent segment
 		if (consentStatus === 'consent') {
-			const cType = consentType || '<consent_type>';
-			basePath = `/consent/${cType}/${proc}/${date}/${case_}`;
+			segments.push({ label: 'Consent', value: 'consent', type: 'consent', filled: true });
+			segments.push({
+				label: 'Type',
+				value: consentType || 'consent_type',
+				type: 'consent-type',
+				filled: !!consentType
+			});
 		} else {
-			basePath = `/no_consent/${proc}/${date}/${case_}`;
+			segments.push({ label: 'Consent', value: 'no_consent', type: 'consent', filled: true });
 		}
 
-		const filename = `${case_}_${type}_${ang}.jpg`;
-		return `${basePath}/${filename}`;
+		// Procedure segment
+		segments.push({
+			label: 'Procedure',
+			value: procedureType || 'procedure',
+			type: 'procedure',
+			filled: !!procedureType
+		});
+
+		// Date segment
+		segments.push({
+			label: 'Surgery Date',
+			value: surgeryDate || 'date',
+			type: 'date',
+			filled: !!surgeryDate
+		});
+
+		// Case number segment
+		segments.push({
+			label: 'Case #',
+			value: caseNumber || 'case',
+			type: 'case',
+			filled: !!caseNumber
+		});
+
+		return segments;
+	});
+
+	let filenameSegments = $derived(() => {
+		return [
+			{ label: 'Case #', value: caseNumber || 'case', type: 'case', filled: !!caseNumber },
+			{ label: 'Image Type', value: imageType || 'type', type: 'image-type', filled: !!imageType },
+			{ label: 'Angle', value: angle || 'angle', type: 'angle', filled: !!angle },
+		];
 	});
 
 	// Check if form is complete for submit button
@@ -273,6 +314,51 @@
 			dobError = '';
 		}
 	}
+
+	async function handleSubmit() {
+		if (!formComplete() || !selectedFile || isSubmitting) return;
+
+		isSubmitting = true;
+		submitError = '';
+
+		try {
+			const formData = new FormData();
+			formData.append('file', selectedFile);
+			formData.append('caseNumber', caseNumber);
+			formData.append('consentStatus', consentStatus);
+			if (consentStatus === 'consent') {
+				formData.append('consentType', consentType);
+			}
+			formData.append('procedureType', procedureType);
+			formData.append('surgeryDate', surgeryDate);
+			formData.append('imageType', imageType);
+			formData.append('angle', angle);
+			formData.append('originalFilename', selectedFilename || selectedFile.name);
+
+			const response = await fetch('/api/sort-image', {
+				method: 'POST',
+				body: formData
+			});
+
+			const result = await response.json();
+
+			if (!response.ok) {
+				throw new Error(result.error || 'Failed to sort image');
+			}
+
+			// Success - notify parent and reset form for next image
+			onSorted();
+
+			// Reset image-specific fields (keep patient info)
+			imageType = 'pre_op';
+			angle = 'front';
+
+		} catch (error) {
+			submitError = error instanceof Error ? error.message : 'Failed to sort image';
+		} finally {
+			isSubmitting = false;
+		}
+	}
 </script>
 
 <div class="case-input-group">
@@ -428,9 +514,45 @@
 		</div>
 
 		<div class="submit-section">
-			<div class="path-preview" class:incomplete={!formComplete()}>{destinationPath()}</div>
-			<button type="button" class="submit-btn" disabled={!formComplete()}>
-				Sort Image
+			<div class="path-preview" class:incomplete={!formComplete()}>
+				<div class="preview-section">
+					<span class="preview-title">Folder</span>
+					<div class="path-with-labels">
+						{#each pathSegments() as segment, i}
+							<span class="segment-col">
+								<span class="legend-item {segment.type}" class:placeholder={!segment.filled}>{segment.label}</span>
+								<span class="value-row"><span class="sep">/</span><span class="path-value {segment.type}" class:placeholder={!segment.filled}>{segment.value}</span></span>
+							</span>
+						{/each}
+					</div>
+				</div>
+
+				<div class="preview-section filename-section">
+					<span class="preview-title">Filename</span>
+					<div class="path-with-labels">
+						{#each filenameSegments() as segment, i}
+							<span class="segment-col">
+								<span class="legend-item {segment.type}" class:placeholder={!segment.filled}>{segment.label}</span>
+								<span class="value-row">{#if i > 0}<span class="sep underscore">_</span>{/if}<span class="path-value {segment.type}" class:placeholder={!segment.filled}>{segment.value}</span></span>
+							</span>
+						{/each}
+						<span class="segment-col ext-col">
+							<span class="legend-item ext-label">&nbsp;</span>
+							<span class="value-row"><span class="file-ext">.jpg</span></span>
+						</span>
+					</div>
+				</div>
+			</div>
+			{#if submitError}
+				<div class="submit-error">{submitError}</div>
+			{/if}
+			<button
+				type="button"
+				class="submit-btn"
+				disabled={!formComplete() || !selectedFile || isSubmitting}
+				onclick={handleSubmit}
+			>
+				{isSubmitting ? 'Sorting...' : 'Sort Image'}
 			</button>
 		</div>
 	{/if}
@@ -627,19 +749,139 @@
 	}
 
 	.path-preview {
-		font-family: monospace;
-		font-size: 0.8125rem;
-		background: #f0f0f0;
+		background: #f8f9fa;
 		padding: 0.75rem;
-		border-radius: 4px;
+		border-radius: 6px;
 		margin-bottom: 0.75rem;
-		word-break: break-all;
-		color: #333;
+		border: 1px solid #e5e7eb;
 	}
 
-	.path-preview.incomplete {
-		color: #999;
+	.preview-section {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
 	}
+
+	.preview-title {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: #6b7280;
+		min-width: 4rem;
+		padding-top: 1.5rem;
+	}
+
+	.path-with-labels {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		gap: 0.125rem;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+		font-size: 0.875rem;
+	}
+
+	.segment-col {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.25rem;
+	}
+
+	.value-row {
+		display: flex;
+		align-items: center;
+	}
+
+	.ext-col {
+		justify-content: flex-end;
+	}
+
+	.legend-item {
+		font-size: 0.5625rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.02em;
+		padding: 0.125rem 0.375rem;
+		border-radius: 3px;
+		border: 1px solid;
+		font-family: system-ui, -apple-system, sans-serif;
+	}
+
+	.legend-item.placeholder {
+		border-style: dashed;
+		opacity: 0.6;
+	}
+
+	.legend-item.ext-label {
+		border: none;
+		background: transparent;
+	}
+
+	.filename-section {
+		margin-top: 0.75rem;
+		padding-top: 0.75rem;
+		border-top: 1px solid #e5e7eb;
+	}
+
+
+	.sep {
+		color: #374151;
+		font-weight: 700;
+		padding: 0 0.125rem;
+	}
+
+	.sep.underscore {
+		color: #6b7280;
+		padding: 0 0.0625rem;
+	}
+
+	.path-value {
+		font-weight: 600;
+		padding: 0.125rem 0.25rem;
+		border-radius: 3px;
+		margin: -0.125rem 0;
+	}
+
+	.path-value.placeholder {
+		font-weight: 400;
+		font-style: italic;
+		background: transparent !important;
+		color: #9ca3af !important;
+	}
+
+	.file-ext {
+		color: #6b7280;
+		font-weight: 500;
+	}
+
+	/* Consent status - green */
+	.legend-item.consent { border-color: #10b981; background: #ecfdf5; color: #047857; }
+	.path-value.consent { color: #047857; background: #ecfdf5; }
+
+	/* Consent type - teal */
+	.legend-item.consent-type { border-color: #14b8a6; background: #f0fdfa; color: #0f766e; }
+	.path-value.consent-type { color: #0f766e; background: #f0fdfa; }
+
+	/* Procedure - purple */
+	.legend-item.procedure { border-color: #8b5cf6; background: #f5f3ff; color: #6d28d9; }
+	.path-value.procedure { color: #6d28d9; background: #f5f3ff; }
+
+	/* Date - blue */
+	.legend-item.date { border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; }
+	.path-value.date { color: #1d4ed8; background: #eff6ff; }
+
+	/* Case number - orange */
+	.legend-item.case { border-color: #f97316; background: #fff7ed; color: #c2410c; }
+	.path-value.case { color: #c2410c; background: #fff7ed; }
+
+	/* Image type - pink */
+	.legend-item.image-type { border-color: #ec4899; background: #fdf2f8; color: #be185d; }
+	.path-value.image-type { color: #be185d; background: #fdf2f8; }
+
+	/* Angle - cyan */
+	.legend-item.angle { border-color: #06b6d4; background: #ecfeff; color: #0e7490; }
+	.path-value.angle { color: #0e7490; background: #ecfeff; }
 
 	.submit-btn {
 		width: 100%;
@@ -660,5 +902,15 @@
 	.submit-btn:disabled {
 		background: #9ca3af;
 		cursor: not-allowed;
+	}
+
+	.submit-error {
+		background: #fef2f2;
+		border: 1px solid #fecaca;
+		color: #dc2626;
+		padding: 0.5rem 0.75rem;
+		border-radius: 4px;
+		font-size: 0.875rem;
+		margin-bottom: 0.75rem;
 	}
 </style>
