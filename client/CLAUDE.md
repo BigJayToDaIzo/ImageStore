@@ -50,11 +50,13 @@ Form fields for patient/case data.
 - Read-only when case number exists (edit via Patients tab instead)
 
 ## Next Session
-- [ ] **CODE REVIEW FIRST** - Do code review in the cloud (not locally) before committing. User wants to audit code before commits.
 - [ ] Settings tab - allow user to change default values (procedure, angle, image type, etc.)
 - [ ] Filter for malformed case numbers once schema is defined (schema TBD)
-- [ ] Wire form submission to backend API (move/rename file)
 - [ ] Case number autocomplete with ghost text tab-completion
+
+## Completed 2026-02-02
+- [x] Dirty form confirmation modal (warns when switching images with unsaved form data)
+- [x] Code review before merging friday_work into main
 
 ## Completed 2026-01-29
 - [x] Date picker UX (text + dropdowns + year button modal, all synced)

@@ -2,7 +2,8 @@
 	let {
 		selectedFile = null,
 		selectedFilename = '',
-		onSorted = () => {}
+		onSorted = () => {},
+		isDirty = $bindable(false)
 	} = $props();
 
 	let caseNumber = $state('');
@@ -44,6 +45,36 @@
 		{ value: 'left', label: 'Left' },
 		{ value: 'right', label: 'Right' },
 	];
+
+	// Track if form has been modified from defaults
+	$effect(() => {
+		isDirty = caseNumber !== '' ||
+			consentStatus !== 'no_consent' ||
+			consentType !== '' ||
+			procedureType !== 'rhinoplasty' ||
+			surgeryDate !== yesterday ||
+			imageType !== 'pre_op' ||
+			angle !== 'front' ||
+			dobMonth !== '' ||
+			dobDay !== '' ||
+			dobYear !== '';
+	});
+
+	// Reset form to defaults
+	export function resetForm() {
+		caseNumber = '';
+		consentStatus = 'no_consent';
+		consentType = '';
+		procedureType = 'rhinoplasty';
+		surgeryDate = yesterday;
+		imageType = 'pre_op';
+		angle = 'front';
+		dobMonth = '';
+		dobDay = '';
+		dobYear = '';
+		dobText = '';
+		dobError = '';
+	}
 
 	// Build destination path preview as structured segments for visual display
 	let pathSegments = $derived(() => {

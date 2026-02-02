@@ -10,6 +10,12 @@
 	let collapsed = $state(false);
 	let pinned = $state(false);
 	let fileInput;
+	let formIsDirty = $state(false);
+	let caseNumberInputRef;
+
+	// Modal state
+	let showSwitchModal = $state(false);
+	let pendingIndex = $state(-1);
 
 	// Show hovered image if hovering, otherwise show selected
 	let previewImage = $derived(
@@ -17,10 +23,41 @@
 	);
 
 	function selectImage(index) {
-		selectedIndex = index;
+		if (index === selectedIndex) return;
+
+		if (formIsDirty) {
+			pendingIndex = index;
+			showSwitchModal = true;
+		} else {
+			selectedIndex = index;
+			if (!pinned) {
+				collapsed = true;
+			}
+		}
+	}
+
+	function handleModalClearAndSwitch() {
+		caseNumberInputRef?.resetForm();
+		selectedIndex = pendingIndex;
+		showSwitchModal = false;
+		pendingIndex = -1;
 		if (!pinned) {
 			collapsed = true;
 		}
+	}
+
+	function handleModalKeepAndSwitch() {
+		selectedIndex = pendingIndex;
+		showSwitchModal = false;
+		pendingIndex = -1;
+		if (!pinned) {
+			collapsed = true;
+		}
+	}
+
+	function handleModalCancel() {
+		showSwitchModal = false;
+		pendingIndex = -1;
 	}
 
 	function handleKeydown(event, index) {
@@ -149,12 +186,28 @@
 		</div>
 
 		<CaseNumberInput
+			bind:this={caseNumberInputRef}
 			selectedFile={images[selectedIndex]?.file}
 			selectedFilename={images[selectedIndex]?.name}
 			onSorted={handleImageSorted}
+			bind:isDirty={formIsDirty}
 		/>
 	</section>
 </div>
+
+{#if showSwitchModal}
+	<div class="modal-overlay" onclick={handleModalCancel}>
+		<div class="modal" onclick={(e) => e.stopPropagation()}>
+			<h3>Switch Image?</h3>
+			<p>You have unsaved changes in the form. What would you like to do?</p>
+			<div class="modal-actions">
+				<button class="modal-btn secondary" onclick={handleModalCancel}>Cancel</button>
+				<button class="modal-btn" onclick={handleModalKeepAndSwitch}>Keep Form & Switch</button>
+				<button class="modal-btn primary" onclick={handleModalClearAndSwitch}>Clear & Switch</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <style>
 	.image-sorter {
@@ -392,5 +445,77 @@
 	.placeholder {
 		color: #999;
 		font-size: 0.75rem;
+	}
+
+	.modal-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+	}
+
+	.modal {
+		background: white;
+		border-radius: 8px;
+		padding: 1.5rem;
+		max-width: 400px;
+		width: 90%;
+		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+	}
+
+	.modal h3 {
+		margin: 0 0 0.75rem 0;
+		font-size: 1.125rem;
+		color: #333;
+	}
+
+	.modal p {
+		margin: 0 0 1.25rem 0;
+		font-size: 0.9375rem;
+		color: #555;
+		line-height: 1.4;
+	}
+
+	.modal-actions {
+		display: flex;
+		gap: 0.5rem;
+		justify-content: flex-end;
+	}
+
+	.modal-btn {
+		padding: 0.5rem 1rem;
+		border-radius: 4px;
+		font-size: 0.875rem;
+		cursor: pointer;
+		border: 1px solid #ccc;
+		background: white;
+		color: #333;
+	}
+
+	.modal-btn:hover {
+		background: #f5f5f5;
+	}
+
+	.modal-btn.primary {
+		background: #2563eb;
+		color: white;
+		border-color: #2563eb;
+	}
+
+	.modal-btn.primary:hover {
+		background: #1d4ed8;
+	}
+
+	.modal-btn.secondary {
+		background: transparent;
+		border-color: #ddd;
+		color: #666;
+	}
+
+	.modal-btn.secondary:hover {
+		background: #f0f0f0;
 	}
 </style>
