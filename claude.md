@@ -160,7 +160,9 @@ All other metadata (consent level, image type, angle) stored in folder structure
 - [ ] Show 2 parent directories in source path (e.g., `../../parent/folder`)
 - [ ] Surgery packages (multiple procedures per surgery, returning patients)
 - [ ] Clickable image folder links (open in Finder/file manager instead of copy path)
-- [ ] Settings tab for customizable defaults
+- [x] Settings tab for customizable defaults (2026-02-03)
+- [ ] Persist surgeons/procedures to CSV (like patients.csv)
+- [ ] Procedure favorites with "Other..." filter
 
 ---
-*Last updated: 2026-02-02*
+*Last updated: 2026-02-03*

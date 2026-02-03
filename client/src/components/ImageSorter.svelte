@@ -215,13 +215,14 @@
 		flex: 1;
 		overflow: hidden;
 		position: relative;
+		background: #fee2e2;
 	}
 
 	.thumbnail-panel {
 		flex: 1;
 		max-width: 50%;
-		background: #fafafa;
-		border-right: 1px solid #ddd;
+		background: #fef2f2;
+		border-right: 1px solid #fecaca;
 		overflow: hidden;
 		display: flex;
 		transition: max-width 0.25s ease, flex 0.25s ease, opacity 0.2s ease;
@@ -419,7 +420,7 @@
 		flex: 1;
 		min-width: 360px;
 		padding: 1.5rem;
-		background: #fff;
+		background: #fee2e2;
 		overflow-y: auto;
 	}
 

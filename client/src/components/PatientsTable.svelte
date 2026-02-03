@@ -6,13 +6,34 @@
 	let isLoading = $state(true);
 	let error = $state('');
 
+	// Surgeons list from settings
+	let surgeonsList = $state<{id: string; name: string}[]>([]);
+
+	// Load surgeons list on mount
+	$effect(() => {
+		fetch('/api/settings')
+			.then(res => res.ok ? res.json() : null)
+			.then(settings => {
+				if (settings?.surgeons) {
+					surgeonsList = settings.surgeons;
+				}
+			})
+			.catch(() => {});
+	});
+
+	function getSurgeonName(surgeonId: string): string {
+		if (!surgeonId) return '';
+		const surgeon = surgeonsList.find(s => s.id === surgeonId);
+		return surgeon?.name || surgeonId;
+	}
+
 	// Editing state
 	let editingCase = $state<string | null>(null);
-	let editForm = $state({ first_name: '', last_name: '', dob: '', surgery_date: '', primary_procedure: '' });
+	let editForm = $state({ first_name: '', last_name: '', dob: '', surgery_date: '', primary_procedure: '', surgeon: '' });
 
 	// New patient state
 	let showAddForm = $state(false);
-	let newPatient = $state({ case_number: '', first_name: '', last_name: '', dob: '', surgery_date: '', primary_procedure: '' });
+	let newPatient = $state({ case_number: '', first_name: '', last_name: '', dob: '', surgery_date: '', primary_procedure: '', surgeon: '' });
 	let addError = $state('');
 
 	// Delete modal state
@@ -111,13 +132,14 @@
 			last_name: patient.last_name,
 			dob: patient.dob,
 			surgery_date: patient.surgery_date,
-			primary_procedure: patient.primary_procedure
+			primary_procedure: patient.primary_procedure,
+			surgeon: patient.surgeon
 		};
 	}
 
 	function cancelEdit() {
 		editingCase = null;
-		editForm = { first_name: '', last_name: '', dob: '', surgery_date: '', primary_procedure: '' };
+		editForm = { first_name: '', last_name: '', dob: '', surgery_date: '', primary_procedure: '', surgeon: '' };
 	}
 
 	function getImagePath(patient: Patient): string {
@@ -163,13 +185,13 @@
 
 	function openAddForm() {
 		showAddForm = true;
-		newPatient = { case_number: '', first_name: '', last_name: '', dob: '', surgery_date: '', primary_procedure: '' };
+		newPatient = { case_number: '', first_name: '', last_name: '', dob: '', surgery_date: '', primary_procedure: '', surgeon: '' };
 		addError = '';
 	}
 
 	function cancelAdd() {
 		showAddForm = false;
-		newPatient = { case_number: '', first_name: '', last_name: '', dob: '', surgery_date: '', primary_procedure: '' };
+		newPatient = { case_number: '', first_name: '', last_name: '', dob: '', surgery_date: '', primary_procedure: '', surgeon: '' };
 		addError = '';
 	}
 
@@ -309,6 +331,12 @@
 								<span class="sort-icon">{sortDirection === 'asc' ? '▲' : '▼'}</span>
 							{/if}
 						</th>
+						<th class="sortable" onclick={() => handleSort('surgeon')}>
+							Surgeon
+							{#if sortColumn === 'surgeon'}
+								<span class="sort-icon">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+							{/if}
+						</th>
 						<th>Images</th>
 						<th>Actions</th>
 					</tr>
@@ -362,6 +390,14 @@
 									onkeydown={handleAddKeydown}
 								/>
 							</td>
+							<td>
+								<select bind:value={newPatient.surgeon}>
+									<option value="">Select...</option>
+									{#each surgeonsList as s}
+										<option value={s.id}>{s.name}</option>
+									{/each}
+								</select>
+							</td>
 							<td></td>
 							<td class="actions">
 								<button class="action-btn save" onclick={submitAdd}>Save</button>
@@ -370,7 +406,7 @@
 						</tr>
 						{#if addError}
 							<tr class="error-row">
-								<td colspan="8">{addError}</td>
+								<td colspan="9">{addError}</td>
 							</tr>
 						{/if}
 					{/if}
@@ -414,6 +450,14 @@
 										onkeydown={handleEditKeydown}
 									/>
 								</td>
+								<td>
+									<select bind:value={editForm.surgeon}>
+										<option value="">Select...</option>
+										{#each surgeonsList as s}
+											<option value={s.id}>{s.name}</option>
+										{/each}
+									</select>
+								</td>
 								<td></td>
 								<td class="actions">
 									<button class="action-btn save" onclick={saveEdit}>Save</button>
@@ -425,6 +469,7 @@
 								<td>{formatDOB(patient.dob)}</td>
 								<td>{patient.surgery_date}</td>
 								<td class="procedure">{patient.primary_procedure}</td>
+								<td>{getSurgeonName(patient.surgeon)}</td>
 								<td class="images-link">
 									{#if getImagePath(patient)}
 										<button
@@ -448,7 +493,7 @@
 
 					{#if displayedPatients().length === 0 && !showAddForm}
 						<tr>
-							<td colspan="8" class="empty-message">
+							<td colspan="9" class="empty-message">
 								{searchQuery ? 'No patients match your search' : 'No patients yet'}
 							</td>
 						</tr>
@@ -480,7 +525,7 @@
 		height: 100%;
 		width: 100%;
 		padding: 1.5rem;
-		background: #fff;
+		background: #ffedd5;
 		overflow: hidden;
 	}
 
@@ -686,8 +731,23 @@
 		font-size: 0.875rem;
 	}
 
-	.add-row input:focus {
+	.add-row input:focus,
+	.add-row select:focus {
 		outline: none;
+		border-color: #2563eb;
+	}
+
+	.add-row select,
+	.editing select {
+		width: 100%;
+		padding: 0.375rem 0.5rem;
+		border: 1px solid #ccc;
+		border-radius: 3px;
+		font-size: 0.875rem;
+		background: white;
+	}
+
+	.editing select {
 		border-color: #2563eb;
 	}
 

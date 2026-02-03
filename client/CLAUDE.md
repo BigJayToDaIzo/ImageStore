@@ -45,8 +45,26 @@ Full CRUD table for patient management.
 - Delete confirmation modal
 - "Copy Path" button shows image folder location for each patient
 
+### SettingsPanel.svelte
+Settings management with subtab navigation.
+- **Subtabs:** Storage, Procedures, Surgeons, Misc
+- **Storage tab:** Destination path, custom data path option
+- **Procedures tab:** Default procedure selector, CSV import, CRUD list
+- **Surgeons tab:** Default surgeon selector, CSV import, CRUD list
+- **Misc tab:** Image type, angle, patient age defaults
+- CSV import: Click "Import CSV" → file picker → auto-imports on selection (merges, skips duplicates)
+
 ## UI Conventions
-- Blue accent color: #2563eb
+
+### Tab Colors (ROYGBIV)
+Each main tab has a unique color theme with folder-tab styling:
+- **Sort Images:** Red (#fee2e2 bg, #991b1b text)
+- **Patients:** Orange (#ffedd5 bg, #9a3412 text)
+- **Settings:** Violet (#f3e8ff bg, #6b21a8 text)
+
+Settings subtabs use purple shades (#ede9fe inactive, #ddd6fe active).
+
+### Form Styling
 - Form inputs: 1px solid #ccc border, 4px radius
 - Consent form wrapped in light grey (#f8f8f8) rounded container
 
@@ -63,11 +81,24 @@ Full CRUD table for patient management.
 - Read-only when case number exists (edit via Patients tab instead)
 
 ## Next Session
-- [ ] **START HERE:** When consent status = "consent", default consent type to "hipaa" (safer than leaving blank)
-- [ ] Settings tab - allow user to change default values (procedure, angle, image type, etc.)
+- [ ] Store surgeons/procedures as local CSV (like patients.csv, persist to filesystem)
+- [ ] Procedure favorites filter: show favorites first, "Other..." reveals full list with type-to-filter
+- [ ] Default source path section in Storage tab
 - [ ] Filter for malformed case numbers once schema is defined (schema TBD)
 - [ ] Figure out how to manage surgery packages (multiple procedures per surgery, bundled pricing, etc.)
 - [ ] Show clickable links to browse images in file system for existing case numbers
+
+## Completed 2026-02-03
+- [x] Default consent type to "hipaa" when consent given (least access principle)
+- [x] Removed consent status from Settings (always defaults to no_consent, not configurable)
+- [x] Settings panel with subtabs: Storage, Procedures, Surgeons, Misc
+- [x] Moved default procedure selector to Procedures tab
+- [x] Moved default surgeon selector to Surgeons tab
+- [x] Streamlined CSV import: single "Import CSV" button opens file picker, auto-imports on selection
+- [x] Removed Browse buttons from import sections
+- [x] ROYGBIV tab colors: red (Sort), orange (Patients), violet (Settings)
+- [x] Folder-tab styling for main tabs and Settings subtabs
+- [x] Matching background colors throughout each tab's content area
 
 ## Completed 2026-02-02
 - [x] Dirty form confirmation modal (warns when switching images with unsaved form data)

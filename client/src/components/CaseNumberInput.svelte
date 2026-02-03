@@ -6,6 +6,52 @@
 		isDirty = $bindable(false)
 	} = $props();
 
+	// Settings-driven defaults
+	let settingsLoaded = $state(false);
+	let defaultProcedure = $state('rhinoplasty');
+	let defaultImageType = $state('pre_op');
+	let defaultAngle = $state('front');
+	let defaultAge = $state(33);
+	let defaultSurgeon = $state('');
+	let surgeonsList = $state([]);
+	let proceduresList = $state([
+		{ id: 'rhinoplasty', name: 'Rhinoplasty' },
+		{ id: 'facelift', name: 'Facelift' },
+		{ id: 'blepharoplasty', name: 'Blepharoplasty' },
+		{ id: 'breast_augmentation', name: 'Breast Augmentation' },
+		{ id: 'liposuction', name: 'Liposuction' },
+	]);
+
+	// Load settings on mount
+	$effect(() => {
+		if (!settingsLoaded) {
+			fetch('/api/settings')
+				.then(res => res.ok ? res.json() : null)
+				.then(settings => {
+					if (settings) {
+						surgeonsList = settings.surgeons || [];
+						if (settings.procedures && settings.procedures.length > 0) {
+							proceduresList = settings.procedures;
+						}
+						if (settings.defaults) {
+							defaultProcedure = settings.defaults.procedure || 'rhinoplasty';
+							defaultImageType = settings.defaults.imageType || 'pre_op';
+							defaultAngle = settings.defaults.angle || 'front';
+							defaultAge = settings.defaults.defaultPatientAge || 33;
+							defaultSurgeon = settings.defaults.surgeon || '';
+							// Apply defaults to form state
+							procedureType = defaultProcedure;
+							imageType = defaultImageType;
+							angle = defaultAngle;
+							surgeon = defaultSurgeon;
+						}
+					}
+					settingsLoaded = true;
+				})
+				.catch(() => { settingsLoaded = true; });
+		}
+	});
+
 	let caseNumber = $state('');
 	let firstName = $state('');
 	let lastName = $state('');
@@ -72,6 +118,11 @@
 			syncTextFromDropdowns();
 		}
 
+		// Set surgeon from patient record if available
+		if (patient.surgeon) {
+			surgeon = patient.surgeon;
+		}
+
 		showSuggestions = false;
 	}
 
@@ -115,17 +166,17 @@
 	let consentStatus = $state('no_consent');
 	let consentType = $state('');
 
+	// Default to 'hipaa' when consent is given (least access principle)
+	$effect(() => {
+		if (consentStatus === 'consent' && consentType === '') {
+			consentType = 'hipaa';
+		}
+	});
+
 	// Procedure field
 	let procedureType = $state('rhinoplasty');
 	const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 	let surgeryDate = $state(yesterday);
-	const procedures = [
-		{ value: 'rhinoplasty', label: 'Rhinoplasty' },
-		{ value: 'facelift', label: 'Facelift' },
-		{ value: 'blepharoplasty', label: 'Blepharoplasty' },
-		{ value: 'breast_augmentation', label: 'Breast Augmentation' },
-		{ value: 'liposuction', label: 'Liposuction' },
-	];
 
 	// Image metadata
 	let imageType = $state('pre_op');
@@ -145,15 +196,19 @@
 		{ value: 'right', label: 'Right' },
 	];
 
+	// Surgeon field
+	let surgeon = $state('');
+
 	// Track if form has been modified from defaults
 	$effect(() => {
 		isDirty = caseNumber !== '' ||
 			consentStatus !== 'no_consent' ||
 			consentType !== '' ||
-			procedureType !== 'rhinoplasty' ||
+			procedureType !== defaultProcedure ||
 			surgeryDate !== yesterday ||
-			imageType !== 'pre_op' ||
-			angle !== 'front' ||
+			imageType !== defaultImageType ||
+			angle !== defaultAngle ||
+			surgeon !== defaultSurgeon ||
 			dobMonth !== '' ||
 			dobDay !== '' ||
 			dobYear !== '';
@@ -169,10 +224,11 @@
 		showSuggestions = false;
 		consentStatus = 'no_consent';
 		consentType = '';
-		procedureType = 'rhinoplasty';
+		procedureType = defaultProcedure;
 		surgeryDate = yesterday;
-		imageType = 'pre_op';
-		angle = 'front';
+		imageType = defaultImageType;
+		angle = defaultAngle;
+		surgeon = defaultSurgeon;
 		dobMonth = '';
 		dobDay = '';
 		dobYear = '';
@@ -251,7 +307,6 @@
 	let dobError = $state('');
 
 	const currentYear = new Date().getFullYear();
-	const defaultAge = 33;
 	let yearPickerOpen = $state(false);
 
 
@@ -468,6 +523,7 @@
 			formData.append('surgeryDate', surgeryDate);
 			formData.append('imageType', imageType);
 			formData.append('angle', angle);
+			formData.append('surgeon', surgeon);
 			formData.append('originalFilename', selectedFilename || selectedFile.name);
 
 			// Send patient data for new patients (not selected from existing)
@@ -477,6 +533,7 @@
 				if (dobYear && dobMonth && dobDay) {
 					formData.append('dob', `${dobYear}-${dobMonth}-${dobDay}`);
 				}
+				formData.append('surgeon', surgeon);
 			}
 
 			const response = await fetch('/api/sort-image', {
@@ -686,8 +743,18 @@
 			<label for="procedure_type">Procedure</label>
 			<select id="procedure_type" bind:value={procedureType}>
 				<option value="">Select procedure...</option>
-				{#each procedures as proc}
-					<option value={proc.value}>{proc.label}</option>
+				{#each proceduresList as proc}
+					<option value={proc.id}>{proc.name}</option>
+				{/each}
+			</select>
+		</div>
+
+		<div class="form-group">
+			<label for="surgeon">Surgeon</label>
+			<select id="surgeon" bind:value={surgeon}>
+				<option value="">Select surgeon...</option>
+				{#each surgeonsList as s}
+					<option value={s.id}>{s.name}</option>
 				{/each}
 			</select>
 		</div>

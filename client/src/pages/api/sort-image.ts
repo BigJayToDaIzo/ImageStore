@@ -2,9 +2,7 @@ import type { APIRoute } from 'astro';
 import { mkdir, writeFile, access, constants } from 'node:fs/promises';
 import { join, extname } from 'node:path';
 import { findPatientByCase, createPatient } from '../../lib/patients';
-
-// Base destination directory - configure this to your LAN share path
-const DESTINATION_ROOT = process.env.IMAGESTORE_DEST || '/tmp/imagestore-output';
+import { loadSettings } from '../../lib/settings';
 
 export const prerender = false;
 
@@ -19,7 +17,7 @@ interface SortImageRequest {
   originalFilename: string;
 }
 
-function buildDestinationPath(data: SortImageRequest): { dir: string; filename: string } {
+function buildDestinationPath(data: SortImageRequest, destinationRoot: string): { dir: string; filename: string } {
   const { caseNumber, consentStatus, consentType, procedureType, surgeryDate, imageType, angle, originalFilename } = data;
 
   // Get file extension from original, default to .jpg
@@ -27,9 +25,9 @@ function buildDestinationPath(data: SortImageRequest): { dir: string; filename: 
 
   let basePath: string;
   if (consentStatus === 'consent' && consentType) {
-    basePath = join(DESTINATION_ROOT, 'consent', consentType, procedureType, surgeryDate, caseNumber);
+    basePath = join(destinationRoot, 'consent', consentType, procedureType, surgeryDate, caseNumber);
   } else {
-    basePath = join(DESTINATION_ROOT, 'no_consent', procedureType, surgeryDate, caseNumber);
+    basePath = join(destinationRoot, 'no_consent', procedureType, surgeryDate, caseNumber);
   }
 
   const filename = `${caseNumber}_${imageType}_${angle}${ext}`;
@@ -38,6 +36,8 @@ function buildDestinationPath(data: SortImageRequest): { dir: string; filename: 
 
 export const POST: APIRoute = async ({ request }) => {
   try {
+    const settings = await loadSettings();
+    const destinationRoot = process.env.IMAGESTORE_DEST || settings.destinationRoot;
     const formData = await request.formData();
 
     // Extract metadata
@@ -75,6 +75,7 @@ export const POST: APIRoute = async ({ request }) => {
     const firstName = formData.get('firstName') as string | null;
     const lastName = formData.get('lastName') as string | null;
     const dob = formData.get('dob') as string | null;
+    const surgeon = formData.get('surgeon') as string | null;
 
     if (firstName && lastName) {
       // Check if patient already exists
@@ -86,7 +87,8 @@ export const POST: APIRoute = async ({ request }) => {
           last_name: lastName,
           dob: dob || '',
           surgery_date: metadata.surgeryDate,
-          primary_procedure: metadata.procedureType
+          primary_procedure: metadata.procedureType,
+          surgeon: surgeon || ''
         });
       }
     }
@@ -101,7 +103,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     // Build destination path
-    const { dir, filename } = buildDestinationPath(metadata);
+    const { dir, filename } = buildDestinationPath(metadata, destinationRoot);
     const destPath = join(dir, filename);
 
     // Create directory structure

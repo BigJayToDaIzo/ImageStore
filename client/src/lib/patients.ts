@@ -1,5 +1,6 @@
 import { readFile, writeFile, mkdir, access, constants } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
+import { loadSettings, getDataPath as getSettingsDataPath } from './settings';
 
 export interface Patient {
   case_number: string;
@@ -8,6 +9,7 @@ export interface Patient {
   dob: string;
   surgery_date: string;
   primary_procedure: string;
+  surgeon: string;
   created_at: string;
   updated_at: string;
 }
@@ -15,17 +17,18 @@ export interface Patient {
 // TODO: Eventually need to figure out how to manage surgery packages
 // (multiple procedures per surgery date, bundled pricing, etc.)
 
-export type PatientInput = Pick<Patient, 'case_number' | 'first_name' | 'last_name' | 'dob' | 'surgery_date' | 'primary_procedure'>;
-export type PatientUpdate = Partial<Pick<Patient, 'first_name' | 'last_name' | 'dob' | 'surgery_date' | 'primary_procedure'>>;
+export type PatientInput = Pick<Patient, 'case_number' | 'first_name' | 'last_name' | 'dob' | 'surgery_date' | 'primary_procedure' | 'surgeon'>;
+export type PatientUpdate = Partial<Pick<Patient, 'first_name' | 'last_name' | 'dob' | 'surgery_date' | 'primary_procedure' | 'surgeon'>>;
 
-const CSV_HEADERS = ['case_number', 'first_name', 'last_name', 'dob', 'surgery_date', 'primary_procedure', 'created_at', 'updated_at'] as const;
+const CSV_HEADERS = ['case_number', 'first_name', 'last_name', 'dob', 'surgery_date', 'primary_procedure', 'surgeon', 'created_at', 'updated_at'] as const;
 
-export function getDataPath(): string {
+export async function getDataPath(): Promise<string> {
+  // Environment variables take precedence for backwards compatibility
   if (process.env.IMAGESTORE_DATA) {
     return join(process.env.IMAGESTORE_DATA, 'patients.csv');
   }
-  const destRoot = process.env.IMAGESTORE_DEST || '/tmp/imagestore-output';
-  return join(destRoot, 'data', 'patients.csv');
+  const settings = await loadSettings();
+  return getSettingsDataPath(settings);
 }
 
 function parseCSVLine(line: string): string[] {
@@ -67,7 +70,7 @@ function patientToCSVLine(patient: Patient): string {
 }
 
 export async function loadPatients(csvPath?: string): Promise<Patient[]> {
-  const path = csvPath ?? getDataPath();
+  const path = csvPath ?? await getDataPath();
 
   try {
     await access(path, constants.F_OK);
@@ -92,14 +95,15 @@ export async function loadPatients(csvPath?: string): Promise<Patient[]> {
       dob: values[3] || '',
       surgery_date: values[4] || '',
       primary_procedure: values[5] || '',
-      created_at: values[6] || '',
-      updated_at: values[7] || ''
+      surgeon: values[6] || '',
+      created_at: values[7] || '',
+      updated_at: values[8] || ''
     };
   });
 }
 
 export async function savePatients(patients: Patient[], csvPath?: string): Promise<void> {
-  const path = csvPath ?? getDataPath();
+  const path = csvPath ?? await getDataPath();
 
   await mkdir(dirname(path), { recursive: true });
 
