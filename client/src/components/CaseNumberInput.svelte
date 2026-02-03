@@ -23,16 +23,16 @@
 	]);
 
 	// Load settings on mount
+	// Load settings and procedures on mount
 	$effect(() => {
 		if (!settingsLoaded) {
-			fetch('/api/settings')
-				.then(res => res.ok ? res.json() : null)
-				.then(settings => {
+			Promise.all([
+				fetch('/api/settings').then(res => res.ok ? res.json() : null),
+				fetch('/api/procedures').then(res => res.ok ? res.json() : null)
+			])
+				.then(([settings, procs]) => {
 					if (settings) {
 						surgeonsList = settings.surgeons || [];
-						if (settings.procedures && settings.procedures.length > 0) {
-							proceduresList = settings.procedures;
-						}
 						if (settings.defaults) {
 							defaultProcedure = settings.defaults.procedure || 'rhinoplasty';
 							defaultImageType = settings.defaults.imageType || 'pre_op';
@@ -45,6 +45,9 @@
 							angle = defaultAngle;
 							surgeon = defaultSurgeon;
 						}
+					}
+					if (procs && procs.length > 0) {
+						proceduresList = procs;
 					}
 					settingsLoaded = true;
 				})
@@ -739,24 +742,26 @@
 			{/if}
 		</div>
 
-		<div class="form-group">
-			<label for="procedure_type">Procedure</label>
-			<select id="procedure_type" bind:value={procedureType}>
-				<option value="">Select procedure...</option>
-				{#each proceduresList as proc}
-					<option value={proc.id}>{proc.name}</option>
-				{/each}
-			</select>
-		</div>
+		<div class="two-col-row">
+			<div class="form-group">
+				<label for="procedure_type">Procedure</label>
+				<select id="procedure_type" bind:value={procedureType}>
+					<option value="">Select procedure...</option>
+					{#each proceduresList as proc}
+						<option value={proc.id}>{proc.name}</option>
+					{/each}
+				</select>
+			</div>
 
-		<div class="form-group">
-			<label for="surgeon">Surgeon</label>
-			<select id="surgeon" bind:value={surgeon}>
-				<option value="">Select surgeon...</option>
-				{#each surgeonsList as s}
-					<option value={s.id}>{s.name}</option>
-				{/each}
-			</select>
+			<div class="form-group">
+				<label for="surgeon">Surgeon</label>
+				<select id="surgeon" bind:value={surgeon}>
+					<option value="">Select surgeon...</option>
+					{#each surgeonsList as s}
+						<option value={s.id}>{s.name}</option>
+					{/each}
+				</select>
+			</div>
 		</div>
 
 		<div class="form-group">
@@ -764,24 +769,26 @@
 			<input type="date" id="surgery_date" bind:value={surgeryDate} />
 		</div>
 
-		<div class="form-group">
-			<label for="image_type">Image Type</label>
-			<select id="image_type" bind:value={imageType}>
-				<option value="">Select type...</option>
-				{#each imageTypes as type}
-					<option value={type.value}>{type.label}</option>
-				{/each}
-			</select>
-		</div>
+		<div class="two-col-row">
+			<div class="form-group">
+				<label for="image_type">Image Type</label>
+				<select id="image_type" bind:value={imageType}>
+					<option value="">Select type...</option>
+					{#each imageTypes as type}
+						<option value={type.value}>{type.label}</option>
+					{/each}
+				</select>
+			</div>
 
-		<div class="form-group">
-			<label for="angle">Angle</label>
-			<select id="angle" bind:value={angle}>
-				<option value="">Select angle...</option>
-				{#each angles as a}
-					<option value={a.value}>{a.label}</option>
-				{/each}
-			</select>
+			<div class="form-group">
+				<label for="angle">Angle</label>
+				<select id="angle" bind:value={angle}>
+					<option value="">Select angle...</option>
+					{#each angles as a}
+						<option value={a.value}>{a.label}</option>
+					{/each}
+				</select>
+			</div>
 		</div>
 
 		<div class="submit-section">
@@ -831,7 +838,16 @@
 
 <style>
 	.form-group {
-		margin-bottom: 1rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.two-col-row {
+		display: flex;
+		gap: 0.75rem;
+	}
+
+	.two-col-row .form-group {
+		flex: 1;
 	}
 
 	.case-input-wrapper {
@@ -1112,7 +1128,7 @@
 	.consent-form {
 		background: #f8f8f8;
 		border-radius: 6px;
-		padding: 1rem;
+		padding: 0.75rem;
 	}
 
 	.consent-form .form-group:last-child {
@@ -1120,16 +1136,16 @@
 	}
 
 	.submit-section {
-		margin-top: 1.5rem;
-		padding-top: 1rem;
+		margin-top: 1rem;
+		padding-top: 0.75rem;
 		border-top: 1px solid #ddd;
 	}
 
 	.path-preview {
 		background: #f8f9fa;
-		padding: 0.75rem;
+		padding: 0.5rem 0.75rem;
 		border-radius: 6px;
-		margin-bottom: 0.75rem;
+		margin-bottom: 0.5rem;
 		border: 1px solid #e5e7eb;
 	}
 
@@ -1140,13 +1156,13 @@
 	}
 
 	.preview-title {
-		font-size: 0.6875rem;
+		font-size: 0.625rem;
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		color: #6b7280;
-		min-width: 4rem;
-		padding-top: 1.5rem;
+		min-width: 3.5rem;
+		padding-top: 1.25rem;
 	}
 
 	.path-with-labels {
@@ -1196,8 +1212,8 @@
 	}
 
 	.filename-section {
-		margin-top: 0.75rem;
-		padding-top: 0.75rem;
+		margin-top: 0.5rem;
+		padding-top: 0.5rem;
 		border-top: 1px solid #e5e7eb;
 	}
 

@@ -7,8 +7,6 @@
 	let selectedIndex = $state(0);
 	let hoveredIndex = $state(-1);
 	let folderPath = $state('');
-	let collapsed = $state(false);
-	let pinned = $state(false);
 	let fileInput;
 	let formIsDirty = $state(false);
 	let caseNumberInputRef;
@@ -16,6 +14,7 @@
 	// Modal state
 	let showSwitchModal = $state(false);
 	let pendingIndex = $state(-1);
+	let pendingFolderFiles = $state(null);
 
 	// Show hovered image if hovering, otherwise show selected
 	let previewImage = $derived(
@@ -30,34 +29,38 @@
 			showSwitchModal = true;
 		} else {
 			selectedIndex = index;
-			if (!pinned) {
-				collapsed = true;
-			}
 		}
 	}
 
 	function handleModalClearAndSwitch() {
 		caseNumberInputRef?.resetForm();
-		selectedIndex = pendingIndex;
-		showSwitchModal = false;
-		pendingIndex = -1;
-		if (!pinned) {
-			collapsed = true;
+		if (pendingFolderFiles) {
+			applyFolderChange(pendingFolderFiles);
+			pendingFolderFiles = null;
+		} else if (pendingIndex >= 0) {
+			selectedIndex = pendingIndex;
+			pendingIndex = -1;
 		}
+		showSwitchModal = false;
 	}
 
 	function handleModalKeepAndSwitch() {
-		selectedIndex = pendingIndex;
-		showSwitchModal = false;
-		pendingIndex = -1;
-		if (!pinned) {
-			collapsed = true;
+		if (pendingFolderFiles) {
+			applyFolderChange(pendingFolderFiles);
+			pendingFolderFiles = null;
+		} else if (pendingIndex >= 0) {
+			selectedIndex = pendingIndex;
+			pendingIndex = -1;
 		}
+		showSwitchModal = false;
 	}
 
 	function handleModalCancel() {
 		showSwitchModal = false;
 		pendingIndex = -1;
+		pendingFolderFiles = null;
+		// Reset file input so the same folder can be selected again
+		if (fileInput) fileInput.value = '';
 	}
 
 	function handleKeydown(event, index) {
@@ -67,10 +70,6 @@
 		}
 	}
 
-	function togglePanel() {
-		collapsed = !collapsed;
-	}
-
 	function handleImageSorted() {
 		// Remove the sorted image from the list
 		images = images.filter((_, i) => i !== selectedIndex);
@@ -78,11 +77,6 @@
 		// Adjust selected index if needed
 		if (selectedIndex >= images.length) {
 			selectedIndex = Math.max(0, images.length - 1);
-		}
-
-		// Expand panel if there are more images to sort
-		if (images.length > 0 && !pinned) {
-			collapsed = false;
 		}
 	}
 
@@ -97,22 +91,32 @@
 		);
 
 		if (imageFiles.length > 0) {
-			// Get folder path from first file's webkitRelativePath
-			const firstPath = imageFiles[0].webkitRelativePath;
-			folderPath = firstPath.split('/')[0];
-
-			// Notify parent of folder change
-			onFolderChange?.(folderPath);
-
-			// Convert files to image objects with blob URLs
-			images = imageFiles.map(file => ({
-				src: URL.createObjectURL(file),
-				name: file.name,
-				file: file
-			}));
-			selectedIndex = 0;
-			hoveredIndex = -1;
+			if (formIsDirty) {
+				// Store pending folder change and show modal
+				pendingFolderFiles = imageFiles;
+				showSwitchModal = true;
+			} else {
+				applyFolderChange(imageFiles);
+			}
 		}
+	}
+
+	function applyFolderChange(imageFiles) {
+		// Get folder path from first file's webkitRelativePath
+		const firstPath = imageFiles[0].webkitRelativePath;
+		folderPath = firstPath.split('/')[0];
+
+		// Notify parent of folder change
+		onFolderChange?.(folderPath);
+
+		// Convert files to image objects with blob URLs
+		images = imageFiles.map(file => ({
+			src: URL.createObjectURL(file),
+			name: file.name,
+			file: file
+		}));
+		selectedIndex = 0;
+		hoveredIndex = -1;
 	}
 </script>
 
@@ -126,26 +130,27 @@
 />
 
 <div class="image-sorter">
-	<section class="thumbnail-panel" class:collapsed>
-		{#if images.length === 0}
-			<div class="empty-state">
-				<p>No source folder selected</p>
-				<button class="select-folder-btn" onclick={openFolderPicker}>Select Source Folder</button>
-			</div>
-		{:else}
-			<div class="thumbnail-content">
+	<!-- Left half: Preview image + Thumbnails -->
+	<section class="left-panel">
+		<div class="preview-area">
+			{#if previewImage}
+				<img src={previewImage.src} alt={previewImage.name} />
+			{:else if images.length === 0}
+				<div class="empty-state">
+					<p>No source folder selected</p>
+					<button class="select-folder-btn" onclick={openFolderPicker}>Select Source Folder</button>
+				</div>
+			{:else}
+				<div class="placeholder">Select an image</div>
+			{/if}
+		</div>
+
+		<div class="thumbnails-area">
+			{#if images.length > 0}
 				<div class="folder-header">
 					<span class="folder-path" title={folderPath}>{folderPath}</span>
 					<span class="image-count">{images.length} images</span>
 					<button class="change-folder-btn" onclick={openFolderPicker}>Change</button>
-					<button
-						class="pin-btn"
-						class:pinned
-						onclick={() => pinned = !pinned}
-						title={pinned ? 'Unpin panel (collapse on selection)' : 'Pin panel (stay open on selection)'}
-					>
-						{pinned ? '📌' : '📍'}
-					</button>
 				</div>
 				<div class="thumbnail-grid">
 					{#each images as image, index}
@@ -163,28 +168,12 @@
 						</button>
 					{/each}
 				</div>
-			</div>
-		{/if}
-	</section>
-
-	{#if images.length > 0}
-		<button class="panel-toggle" class:collapsed onclick={togglePanel} title={collapsed ? 'Show thumbnails' : 'Hide thumbnails'}>
-			<span class="toggle-icon">{collapsed ? '▶' : '◀'}</span>
-			{#if collapsed}
-				<span class="toggle-label">Images</span>
-			{/if}
-		</button>
-	{/if}
-
-	<section class="form-panel">
-		<div class="selected-image">
-			{#if previewImage}
-				<img src={previewImage.src} alt={previewImage.name} />
-			{:else}
-				<div class="placeholder">Select an image</div>
 			{/if}
 		</div>
+	</section>
 
+	<!-- Right half: Form -->
+	<section class="form-panel">
 		<CaseNumberInput
 			bind:this={caseNumberInputRef}
 			selectedFile={images[selectedIndex]?.file}
@@ -198,12 +187,12 @@
 {#if showSwitchModal}
 	<div class="modal-overlay" onclick={handleModalCancel}>
 		<div class="modal" onclick={(e) => e.stopPropagation()}>
-			<h3>Switch Image?</h3>
+			<h3>{pendingFolderFiles ? 'Change Folder?' : 'Switch Image?'}</h3>
 			<p>You have unsaved changes in the form. What would you like to do?</p>
 			<div class="modal-actions">
 				<button class="modal-btn secondary" onclick={handleModalCancel}>Cancel</button>
-				<button class="modal-btn" onclick={handleModalKeepAndSwitch}>Keep Form & Switch</button>
-				<button class="modal-btn primary" onclick={handleModalClearAndSwitch}>Clear & Switch</button>
+				<button class="modal-btn" onclick={handleModalKeepAndSwitch}>Keep Form & {pendingFolderFiles ? 'Change' : 'Switch'}</button>
+				<button class="modal-btn primary" onclick={handleModalClearAndSwitch}>Clear & {pendingFolderFiles ? 'Change' : 'Switch'}</button>
 			</div>
 		</div>
 	</div>
@@ -214,63 +203,35 @@
 		display: flex;
 		flex: 1;
 		overflow: hidden;
-		position: relative;
 		background: #fee2e2;
 	}
 
-	.thumbnail-panel {
+	/* Left panel: Preview + Thumbnails */
+	.left-panel {
 		flex: 1;
 		max-width: 50%;
-		background: #fef2f2;
-		border-right: 1px solid #fecaca;
-		overflow: hidden;
 		display: flex;
-		transition: max-width 0.25s ease, flex 0.25s ease, opacity 0.2s ease;
+		flex-direction: column;
+		background: #fee2e2;
+		border-right: 6px solid #1f2937;
+		overflow: hidden;
 	}
 
-	.thumbnail-panel.collapsed {
-		max-width: 0;
-		flex: 0;
-		border-right: none;
-		opacity: 0;
-		pointer-events: none;
-	}
-
-	.panel-toggle {
-		position: absolute;
-		left: 0;
-		top: 50%;
-		transform: translateY(-50%);
+	.preview-area {
+		flex: 1;
 		display: flex;
 		align-items: center;
-		gap: 0.25rem;
-		padding: 0.75rem 0.5rem;
-		background: #2563eb;
-		color: white;
-		border: none;
-		border-radius: 0 4px 4px 0;
-		cursor: pointer;
-		font-size: 0.75rem;
-		z-index: 10;
-		transition: padding 0.2s ease, background 0.15s ease;
+		justify-content: center;
+		padding: 1rem;
+		min-height: 200px;
+		background: #fee2e2;
 	}
 
-	.panel-toggle:hover {
-		background: #1d4ed8;
-	}
-
-	.panel-toggle:not(.collapsed) {
-		padding: 0.5rem 0.35rem;
-	}
-
-	.toggle-icon {
-		font-size: 0.625rem;
-	}
-
-	.toggle-label {
-		writing-mode: vertical-rl;
-		text-orientation: mixed;
-		font-weight: 500;
+	.preview-area img {
+		max-width: 100%;
+		max-height: 100%;
+		object-fit: contain;
+		border-radius: 4px;
 	}
 
 	.empty-state {
@@ -278,7 +239,6 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		width: 100%;
 		color: #666;
 		text-align: center;
 	}
@@ -301,21 +261,29 @@
 		background: #1d4ed8;
 	}
 
-	.thumbnail-content {
+	.placeholder {
+		color: #999;
+		font-size: 0.875rem;
+	}
+
+	/* Thumbnails area */
+	.thumbnails-area {
 		display: flex;
 		flex-direction: column;
-		height: 100%;
-		width: 100%;
+		max-height: 50%;
+		border-top: 1px solid #fca5a5;
+		background: #fee2e2;
 	}
 
 	.folder-header {
 		display: flex;
 		align-items: center;
-		gap: 0.75rem;
-		padding: 0.5rem 1rem;
-		background: #f0f0f0;
-		border-bottom: 1px solid #ddd;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		background: #fecaca;
+		border-bottom: 1px solid #fca5a5;
 		font-size: 0.8125rem;
+		flex-shrink: 0;
 	}
 
 	.folder-path {
@@ -324,11 +292,13 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+		flex: 1;
+		min-width: 0;
 	}
 
 	.image-count {
 		color: #666;
-		margin-left: auto;
+		white-space: nowrap;
 	}
 
 	.change-folder-btn {
@@ -344,34 +314,12 @@
 		background: #ddd;
 	}
 
-	.pin-btn {
-		padding: 0.25rem 0.4rem;
-		background: transparent;
-		border: 1px solid #ccc;
-		border-radius: 3px;
-		font-size: 0.75rem;
-		cursor: pointer;
-		opacity: 0.6;
-		transition: opacity 0.15s, background 0.15s;
-	}
-
-	.pin-btn:hover {
-		background: #e5e5e5;
-		opacity: 1;
-	}
-
-	.pin-btn.pinned {
-		background: #dbeafe;
-		border-color: #2563eb;
-		opacity: 1;
-	}
-
 	.thumbnail-grid {
 		display: flex;
 		flex-wrap: wrap;
 		align-content: flex-start;
-		gap: 0.75rem;
-		padding: 1rem;
+		gap: 0.5rem;
+		padding: 0.75rem;
 		overflow-y: auto;
 		flex: 1;
 	}
@@ -380,8 +328,8 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		width: 140px;
-		padding: 0.5rem;
+		width: 100px;
+		padding: 0.375rem;
 		background: #f8f8f8;
 		border: 2px solid transparent;
 		border-radius: 4px;
@@ -407,8 +355,8 @@
 	}
 
 	.filename {
-		margin-top: 0.5rem;
-		font-size: 0.75rem;
+		margin-top: 0.375rem;
+		font-size: 0.6875rem;
 		color: #555;
 		text-overflow: ellipsis;
 		overflow: hidden;
@@ -416,36 +364,13 @@
 		max-width: 100%;
 	}
 
+	/* Right panel: Form */
 	.form-panel {
 		flex: 1;
-		min-width: 360px;
-		padding: 1.5rem;
+		max-width: 50%;
+		padding: 1rem 1.25rem;
 		background: #fee2e2;
 		overflow-y: auto;
-	}
-
-	.selected-image {
-		width: 100%;
-		aspect-ratio: 1;
-		max-width: 320px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: #f0f0f0;
-		border-radius: 4px;
-		margin: 0 auto 1.5rem auto;
-	}
-
-	.selected-image img {
-		width: 100%;
-		height: 100%;
-		object-fit: contain;
-		border-radius: 4px;
-	}
-
-	.placeholder {
-		color: #999;
-		font-size: 0.75rem;
 	}
 
 	.modal-overlay {

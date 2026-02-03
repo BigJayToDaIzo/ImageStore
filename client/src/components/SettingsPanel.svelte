@@ -1,9 +1,9 @@
 <script>
 	let settings = $state({
-		destinationRoot: '/tmp/imagestore-output',
+		destinationRoot: '',
+		sourceRoot: '',
 		dataPath: '',
 		surgeons: [],
-		procedures: [],
 		defaults: {
 			procedure: 'rhinoplasty',
 			imageType: 'pre_op',
@@ -12,6 +12,9 @@
 			surgeon: '',
 		},
 	});
+
+	// Procedures stored separately in CSV
+	let procedures = $state([]);
 
 	let isLoading = $state(true);
 	let isSaving = $state(false);
@@ -51,11 +54,12 @@
 		return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 	}
 
-	// Surgeon CRUD
-	function addSurgeon() {
+	// Surgeon CRUD (auto-saves to settings)
+	async function addSurgeon() {
 		if (!newSurgeonName.trim()) return;
 		settings.surgeons = [...settings.surgeons, { id: generateId(), name: newSurgeonName.trim() }];
 		newSurgeonName = '';
+		await saveSettingsQuiet();
 	}
 
 	function startEditSurgeon(surgeon) {
@@ -63,13 +67,14 @@
 		editingSurgeonName = surgeon.name;
 	}
 
-	function saveEditSurgeon() {
+	async function saveEditSurgeon() {
 		if (!editingSurgeonName.trim()) return;
 		settings.surgeons = settings.surgeons.map(s =>
 			s.id === editingSurgeonId ? { ...s, name: editingSurgeonName.trim() } : s
 		);
 		editingSurgeonId = null;
 		editingSurgeonName = '';
+		await saveSettingsQuiet();
 	}
 
 	function cancelEditSurgeon() {
@@ -77,10 +82,24 @@
 		editingSurgeonName = '';
 	}
 
-	function deleteSurgeon(id) {
+	async function deleteSurgeonById(id) {
 		settings.surgeons = settings.surgeons.filter(s => s.id !== id);
 		if (settings.defaults.surgeon === id) {
 			settings.defaults.surgeon = '';
+		}
+		await saveSettingsQuiet();
+	}
+
+	// Quiet save (no success message)
+	async function saveSettingsQuiet() {
+		try {
+			await fetch('/api/settings', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(settings),
+			});
+		} catch (e) {
+			console.error('Failed to save settings:', e);
 		}
 	}
 
@@ -100,12 +119,24 @@
 		}
 	}
 
-	// Procedure CRUD
-	function addProcedure() {
+	// Procedure CRUD (persisted to CSV via API)
+	async function addProcedure() {
 		if (!newProcedureName.trim()) return;
 		const id = newProcedureName.trim().toLowerCase().replace(/\s+/g, '_');
-		settings.procedures = [...settings.procedures, { id, name: newProcedureName.trim() }];
-		newProcedureName = '';
+		try {
+			const res = await fetch('/api/procedures', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id, name: newProcedureName.trim(), favorite: false })
+			});
+			if (res.ok) {
+				const newProc = await res.json();
+				procedures = [...procedures, newProc];
+				newProcedureName = '';
+			}
+		} catch (e) {
+			console.error('Failed to add procedure:', e);
+		}
 	}
 
 	function startEditProcedure(procedure) {
@@ -113,11 +144,21 @@
 		editingProcedureName = procedure.name;
 	}
 
-	function saveEditProcedure() {
+	async function saveEditProcedure() {
 		if (!editingProcedureName.trim()) return;
-		settings.procedures = settings.procedures.map(p =>
-			p.id === editingProcedureId ? { ...p, name: editingProcedureName.trim() } : p
-		);
+		try {
+			const res = await fetch('/api/procedures', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id: editingProcedureId, name: editingProcedureName.trim() })
+			});
+			if (res.ok) {
+				const updated = await res.json();
+				procedures = procedures.map(p => p.id === editingProcedureId ? updated : p);
+			}
+		} catch (e) {
+			console.error('Failed to update procedure:', e);
+		}
 		editingProcedureId = null;
 		editingProcedureName = '';
 	}
@@ -127,10 +168,21 @@
 		editingProcedureName = '';
 	}
 
-	function deleteProcedure(id) {
-		settings.procedures = settings.procedures.filter(p => p.id !== id);
-		if (settings.defaults.procedure === id) {
-			settings.defaults.procedure = settings.procedures[0]?.id || '';
+	async function deleteProcedureById(id) {
+		try {
+			const res = await fetch('/api/procedures', {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id })
+			});
+			if (res.ok) {
+				procedures = procedures.filter(p => p.id !== id);
+				if (settings.defaults.procedure === id) {
+					settings.defaults.procedure = procedures[0]?.id || '';
+				}
+			}
+		} catch (e) {
+			console.error('Failed to delete procedure:', e);
 		}
 	}
 
@@ -156,7 +208,8 @@
 		filePickerMode = mode;
 
 		let initialPath = '';
-		if (target === 'destination') initialPath = settings.destinationRoot;
+		if (target === 'source') initialPath = settings.sourceRoot;
+		else if (target === 'destination') initialPath = settings.destinationRoot;
 		else if (target === 'data') initialPath = settings.dataPath;
 		else if (target === 'surgeonsCsv') initialPath = surgeonsCsvPath;
 		else if (target === 'proceduresCsv') initialPath = proceduresCsvPath;
@@ -204,7 +257,9 @@
 	function confirmFilePicker(path = null) {
 		const selectedPath = path || filePickerPath;
 
-		if (filePickerTarget === 'destination') {
+		if (filePickerTarget === 'source') {
+			settings.sourceRoot = selectedPath;
+		} else if (filePickerTarget === 'destination') {
 			settings.destinationRoot = selectedPath;
 		} else if (filePickerTarget === 'data') {
 			settings.dataPath = selectedPath;
@@ -263,23 +318,42 @@
 		proceduresImportErr = '';
 
 		try {
-			const res = await fetch('/api/import-csv', {
+			// First read the external CSV
+			const readRes = await fetch('/api/import-csv', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					path: proceduresCsvPath,
 					type: 'procedures',
-					existingIds: settings.procedures.map(p => p.id),
+					existingIds: procedures.map(p => p.id),
 				}),
 			});
 
-			const data = await res.json();
-			if (res.ok) {
-				settings.procedures = [...settings.procedures, ...data.items];
-				proceduresImportMsg = `Imported ${data.imported} (${data.skipped} skipped)`;
-				setTimeout(() => proceduresImportMsg = '', 5000);
+			const readData = await readRes.json();
+			if (!readRes.ok) {
+				proceduresImportErr = readData.error || 'Import failed';
+				return;
+			}
+
+			// Then save to procedures API (which persists to CSV)
+			if (readData.items.length > 0) {
+				const saveRes = await fetch('/api/procedures', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(readData.items),
+				});
+
+				if (saveRes.ok) {
+					const result = await saveRes.json();
+					procedures = result.procedures;
+					proceduresImportMsg = `Imported ${result.imported} (${result.skipped} skipped)`;
+					setTimeout(() => proceduresImportMsg = '', 5000);
+				} else {
+					proceduresImportErr = 'Failed to save imported procedures';
+				}
 			} else {
-				proceduresImportErr = data.error || 'Import failed';
+				proceduresImportMsg = `Imported 0 (${readData.skipped} skipped)`;
+				setTimeout(() => proceduresImportMsg = '', 5000);
 			}
 		} catch (e) {
 			proceduresImportErr = e instanceof Error ? e.message : 'Import failed';
@@ -302,16 +376,25 @@
 	];
 
 	$effect(() => {
-		loadSettings();
+		loadAllSettings();
 	});
 
-	async function loadSettings() {
+	async function loadAllSettings() {
 		try {
-			const res = await fetch('/api/settings');
-			if (res.ok) {
-				const loaded = await res.json();
+			// Load settings and procedures in parallel
+			const [settingsRes, proceduresRes] = await Promise.all([
+				fetch('/api/settings'),
+				fetch('/api/procedures')
+			]);
+
+			if (settingsRes.ok) {
+				const loaded = await settingsRes.json();
 				settings = loaded;
 				useCustomDataPath = !!loaded.dataPath;
+			}
+
+			if (proceduresRes.ok) {
+				procedures = await proceduresRes.json();
 			}
 		} catch (e) {
 			console.error('Failed to load settings:', e);
@@ -408,6 +491,22 @@
 						<h2>Storage Paths</h2>
 						<div class="section-content">
 							<div class="form-group">
+								<label for="source_root">Default Source Path</label>
+								<div class="path-input-row">
+									<input
+										type="text"
+										id="source_root"
+										bind:value={settings.sourceRoot}
+										placeholder="/path/to/unsorted/images"
+									/>
+									<button type="button" class="browse-btn" onclick={() => openFilePicker('source', 'directory')}>
+										Browse
+									</button>
+								</div>
+								<p class="field-hint">Default folder for unsorted images</p>
+							</div>
+
+							<div class="form-group">
 								<label for="destination_root">Destination Path</label>
 								<div class="path-input-row">
 									<input
@@ -463,7 +562,7 @@
 							<div class="form-group">
 								<label for="default_procedure">Default Procedure</label>
 								<select id="default_procedure" bind:value={settings.defaults.procedure}>
-									{#each settings.procedures as proc}
+									{#each procedures as proc}
 										<option value={proc.id}>{proc.name}</option>
 									{/each}
 								</select>
@@ -482,7 +581,7 @@
 							{/if}
 
 							<div class="list-container">
-								{#each settings.procedures as procedure}
+								{#each procedures as procedure}
 									<div class="list-item">
 										{#if editingProcedureId === procedure.id}
 											<input
@@ -497,11 +596,11 @@
 											<span class="item-name">{procedure.name}</span>
 											<span class="item-id">{procedure.id}</span>
 											<button type="button" class="item-btn edit" onclick={() => startEditProcedure(procedure)}>Edit</button>
-											<button type="button" class="item-btn delete" onclick={() => deleteProcedure(procedure.id)}>Delete</button>
+											<button type="button" class="item-btn delete" onclick={() => deleteProcedureById(procedure.id)}>Delete</button>
 										{/if}
 									</div>
 								{/each}
-								{#if settings.procedures.length === 0}
+								{#if procedures.length === 0}
 									<div class="empty-list">No procedures added yet</div>
 								{/if}
 							</div>
@@ -562,7 +661,7 @@
 											<span class="item-name">{surgeon.name}</span>
 											<span class="item-id">{surgeon.id}</span>
 											<button type="button" class="item-btn edit" onclick={() => startEditSurgeon(surgeon)}>Edit</button>
-											<button type="button" class="item-btn delete" onclick={() => deleteSurgeon(surgeon.id)}>Delete</button>
+											<button type="button" class="item-btn delete" onclick={() => deleteSurgeonById(surgeon.id)}>Delete</button>
 										{/if}
 									</div>
 								{/each}
@@ -750,7 +849,9 @@
 		box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 		display: flex;
 		flex-direction: column;
-		max-width: 600px;
+		width: 100%;
+		max-width: 50%;
+		min-width: 400px;
 	}
 
 	.settings-section h2 {

@@ -8,5 +8,8 @@ export default defineConfig({
   integrations: [svelte()],
   adapter: node({
     mode: 'standalone'
-  })
+  }),
+  devToolbar: {
+    enabled: false
+  }
 });
