@@ -24,7 +24,7 @@ Main layout component with 50/50 horizontal split.
 Compact form fields for patient/case data with ghost text autocomplete.
 - **Case Number:** Text input with ghost text autocomplete
   - Search triggers on first keystroke (100ms throttle)
-  - Suggestions dropdown flies UP (doesn't cover fields below)
+  - Suggestions dropdown flies out LEFT (doesn't cover form fields)
   - Tab/Enter selects first suggestion or exact match
   - Ghost text shows suggested case number completion
 - **Last Name / First Name:** Two fields side by side with ghost text from suggestion
@@ -73,6 +73,40 @@ REST API for procedures CRUD.
 - **POST:** Create single or bulk import (array)
 - **PUT:** Update procedure by id
 - **DELETE:** Delete procedure by id
+
+## Default Settings
+
+On first run, ImageStore creates config/data files with factory defaults. Once modified, changes persist and become the new defaults for future sessions.
+
+### File Locations (XDG Standard)
+| Purpose | Path | Contents |
+|---------|------|----------|
+| Config | `~/.config/imagestore/settings.json` | Settings, surgeons list |
+| App Data | `~/.local/share/imagestore/` | `procedures.csv` |
+| Patient Data | `{destinationRoot}/patients.csv` | Patient index (lives with images) |
+| Images | `~/Documents/ImageStore/sorted/` | Sorted patient images |
+| Source | `~/Documents/ImageStore/unsorted/` | Unsorted images to process |
+
+### Factory Default Values
+
+**Storage Paths:**
+- Destination Root: `~/Documents/ImageStore/sorted`
+- Source Root: `~/Documents/ImageStore/unsorted`
+- Custom Data Path: *(empty - uses destinationRoot)*
+
+**Form Defaults:**
+- Procedure: Rhinoplasty
+- Image Type: Pre-Op
+- Angle: Front
+- Patient Age: 33 years (for DOB year picker)
+- Surgeon: *(none)*
+- Consent: No Consent
+
+**Default Procedures:**
+- Rhinoplasty, Facelift, Blepharoplasty, Breast Augmentation, Liposuction
+- All marked as favorites
+
+**Surgeons:** *(empty - add via Settings)*
 
 ## UI Conventions
 
@@ -137,7 +171,7 @@ Settings subtabs use purple shades (#ede9fe inactive, #ddd6fe active).
 - [x] Code review before merging friday_work into main
 - [x] Ghost text autocomplete on Patients tab search field
 - [x] Ghost text autocomplete on Sort tab (case #, name, DOB fields)
-- [x] Suggestions dropdown flies up to avoid covering ghost fields
+- [x] Suggestions dropdown flies left to avoid covering form fields
 - [x] New patients saved to CSV on image submit
 - [x] Added surgery_date and primary_procedure to patient CSV schema
 - [x] Copy Path button for image folder location on Patients tab

@@ -370,7 +370,7 @@
 		max-width: 50%;
 		padding: 1rem 1.25rem;
 		background: #fee2e2;
-		overflow-y: auto;
+		overflow: visible;
 	}
 
 	.modal-overlay {

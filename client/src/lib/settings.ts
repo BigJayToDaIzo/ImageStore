@@ -21,6 +21,26 @@ export interface Settings {
   };
 }
 
+// XDG Base Directory paths (config and data separate from images)
+function getXdgConfigHome(): string {
+  return process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
+}
+
+function getXdgDataHome(): string {
+  return process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share');
+}
+
+// Config: $XDG_CONFIG_HOME/imagestore/
+export function getConfigDir(): string {
+  return join(getXdgConfigHome(), 'imagestore');
+}
+
+// Data (CSVs): $XDG_DATA_HOME/imagestore/
+export function getDataDir(): string {
+  return join(getXdgDataHome(), 'imagestore');
+}
+
+// Images: ~/Documents/ImageStore/ (completely separate from config/data)
 const DEFAULT_DEST = join(homedir(), 'Documents', 'ImageStore', 'sorted');
 const DEFAULT_SOURCE = join(homedir(), 'Documents', 'ImageStore', 'unsorted');
 
@@ -39,7 +59,7 @@ const DEFAULT_SETTINGS: Settings = {
 };
 
 export function getSettingsPath(): string {
-  return join(homedir(), '.imagestore', 'settings.json');
+  return join(getConfigDir(), 'settings.json');
 }
 
 export async function loadSettings(): Promise<Settings> {
@@ -100,5 +120,18 @@ export function getDataPath(settings: Settings): string {
   if (settings.dataPath) {
     return settings.dataPath;
   }
-  return join(settings.destinationRoot, 'data', 'patients.csv');
+  // Patient data lives with images (same backup, same security)
+  return join(settings.destinationRoot, 'patients.csv');
+}
+
+export async function resetSettings(): Promise<Settings> {
+  const settingsPath = getSettingsPath();
+
+  // Ensure directory exists
+  await mkdir(dirname(settingsPath), { recursive: true });
+
+  // Write factory defaults
+  await writeFile(settingsPath, JSON.stringify(DEFAULT_SETTINGS, null, 2), 'utf-8');
+
+  return { ...DEFAULT_SETTINGS };
 }

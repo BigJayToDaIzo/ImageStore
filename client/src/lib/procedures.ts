@@ -1,6 +1,6 @@
 import { readFile, writeFile, mkdir, access, constants } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
-import { loadSettings } from './settings';
+import { loadSettings, getDataDir } from './settings';
 
 export interface Procedure {
   id: string;
@@ -20,9 +20,10 @@ const DEFAULT_PROCEDURES: Procedure[] = [
 
 export async function getProceduresPath(): Promise<string> {
   const settings = await loadSettings();
+  // Use custom dataPath directory if set, otherwise ~/.imagestore/data/
   const dataDir = settings.dataPath
     ? dirname(settings.dataPath)
-    : join(settings.destinationRoot, 'data');
+    : getDataDir();
   return join(dataDir, 'procedures.csv');
 }
 

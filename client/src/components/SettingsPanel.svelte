@@ -50,6 +50,10 @@
 	let proceduresImportMsg = $state('');
 	let proceduresImportErr = $state('');
 
+	// Factory reset modal
+	let showResetModal = $state(false);
+	let isResetting = $state(false);
+
 	function generateId() {
 		return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 	}
@@ -435,11 +439,36 @@
 		}
 	}
 
+	async function handleFactoryReset() {
+		isResetting = true;
+		saveError = '';
+
+		try {
+			const res = await fetch('/api/settings', { method: 'DELETE' });
+
+			if (res.ok) {
+				settings = await res.json();
+				useCustomDataPath = false;
+				showResetModal = false;
+				saveMessage = 'Settings reset to factory defaults';
+				setTimeout(() => saveMessage = '', 3000);
+			} else {
+				const error = await res.json();
+				saveError = error.error || 'Failed to reset settings';
+			}
+		} catch (e) {
+			saveError = e instanceof Error ? e.message : 'Failed to reset settings';
+		} finally {
+			isResetting = false;
+		}
+	}
+
 	let dataPathPreview = $derived(() => {
 		if (useCustomDataPath && settings.dataPath) {
 			return settings.dataPath;
 		}
-		return `${settings.destinationRoot}/data/patients.csv`;
+		// Patient data lives with images
+		return `${settings.destinationRoot}/patients.csv`;
 	});
 </script>
 
@@ -725,6 +754,10 @@
 			</div>
 
 			<div class="footer">
+				<button type="button" class="reset-btn" onclick={() => showResetModal = true}>
+					Factory Reset
+				</button>
+				<div class="footer-spacer"></div>
 				{#if saveMessage}
 					<div class="save-success">{saveMessage}</div>
 				{/if}
@@ -738,6 +771,33 @@
 		</form>
 	{/if}
 </div>
+
+<!-- Factory Reset Confirmation Modal -->
+{#if showResetModal}
+	<div class="modal-overlay" onclick={() => showResetModal = false}>
+		<div class="modal reset-modal" onclick={(e) => e.stopPropagation()}>
+			<div class="modal-header">
+				<h3>Factory Reset</h3>
+				<button type="button" class="modal-close" onclick={() => showResetModal = false}>&times;</button>
+			</div>
+			<div class="modal-body">
+				<p>This will reset all settings to factory defaults:</p>
+				<ul>
+					<li>Storage paths</li>
+					<li>All surgeons (removed)</li>
+					<li>Form defaults (procedure, image type, angle, etc.)</li>
+				</ul>
+				<p class="warning-text">Patient data and procedures are stored separately and will not be affected.</p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn-secondary" onclick={() => showResetModal = false}>Cancel</button>
+				<button type="button" class="btn-danger" onclick={handleFactoryReset} disabled={isResetting}>
+					{isResetting ? 'Resetting...' : 'Reset to Factory Defaults'}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <!-- File Picker Modal -->
 {#if showFilePicker}
@@ -1201,6 +1261,55 @@
 	.save-btn:disabled {
 		background: #9ca3af;
 		cursor: not-allowed;
+	}
+
+	.reset-btn {
+		padding: 0.5rem 1rem;
+		background: transparent;
+		color: #dc2626;
+		border: 1px solid #dc2626;
+		border-radius: 4px;
+		font-size: 0.8125rem;
+		cursor: pointer;
+	}
+
+	.reset-btn:hover {
+		background: #fef2f2;
+	}
+
+	.footer-spacer {
+		flex: 1;
+	}
+
+	.btn-danger {
+		padding: 0.5rem 1rem;
+		background: #dc2626;
+		color: white;
+		border: none;
+		border-radius: 4px;
+		cursor: pointer;
+	}
+
+	.btn-danger:hover:not(:disabled) {
+		background: #b91c1c;
+	}
+
+	.btn-danger:disabled {
+		background: #9ca3af;
+		cursor: not-allowed;
+	}
+
+	.reset-modal .warning-text {
+		font-size: 0.8125rem;
+		color: #059669;
+		font-style: italic;
+	}
+
+	.reset-modal ul {
+		margin: 0.5rem 0;
+		padding-left: 1.5rem;
+		font-size: 0.875rem;
+		color: #666;
 	}
 
 	/* File Picker Modal */

@@ -866,18 +866,17 @@
 
 	.suggestions-dropdown {
 		position: absolute;
-		bottom: 100%;
-		left: 0;
-		right: 0;
+		top: 0;
+		right: calc(100% + 0.5rem);
+		width: 280px;
 		background: white;
 		border: 1px solid #ccc;
-		border-bottom: none;
-		border-radius: 4px 4px 0 0;
-		box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.1);
+		border-radius: 4px;
+		box-shadow: -4px 4px 8px rgba(0, 0, 0, 0.1);
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		z-index: 100;
+		z-index: 1000;
 		max-height: 200px;
 		overflow-y: auto;
 	}

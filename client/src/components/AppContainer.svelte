@@ -127,7 +127,7 @@
 	.tab-content {
 		flex: 1;
 		display: flex;
-		overflow: hidden;
+		overflow: visible;
 	}
 
 	/* Tab-specific content background colors */
