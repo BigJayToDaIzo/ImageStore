@@ -2,17 +2,20 @@
   "name": "imagestore-client",
   "type": "module",
   "version": "0.0.1",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "start": "bun launcher.mjs",
     "astro": "astro",
     "test": "bun test",
-    "package": "bun run build && bun scripts/package.mjs",
-    "package:mac": "bun run build && bun scripts/package.mjs mac",
-    "package:windows": "bun run build && bun scripts/package.mjs windows",
-    "package:linux": "bun run build && bun scripts/package.mjs linux"
+    "electron": "electron .",
+    "electron:dev": "bun run build && electron .",
+    "dist": "bun run build && electron-builder",
+    "dist:mac": "bun run build && electron-builder --mac",
+    "dist:mac-intel": "bun run build && electron-builder --mac --x64",
+    "dist:win": "bun run build && electron-builder --win",
+    "dist:linux": "bun run build && electron-builder --linux"
   },
   "dependencies": {
     "@astrojs/node": "^9.5.2",
@@ -21,5 +24,36 @@
     "svelte": "^5.48.5",
     "typescript": "^5.9.3"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "electron": "^40.1.0",
+    "electron-builder": "^26.7.0"
+  },
+  "build": {
+    "appId": "com.imagestore.app",
+    "productName": "ImageStore",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.medical",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["arm64", "x64"]
+        }
+      ]
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Office"
+    }
+  }
 }

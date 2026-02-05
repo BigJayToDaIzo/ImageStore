@@ -153,6 +153,8 @@ Settings subtabs use purple shades (#ede9fe inactive, #ddd6fe active).
 - [ ] Filter for malformed case numbers once schema is defined (schema TBD)
 - [ ] Figure out how to manage surgery packages (multiple procedures per surgery, bundled pricing, etc.)
 - [ ] Show clickable links to browse images in file system for existing case numbers
+- [ ] Set up GitHub Releases for distribution (auto-publish on tags)
+- [ ] Procedure-specific form behaviors (e.g., tummy tuck cycles angles front→left→back→right, BBL defaults to back)
 
 ## Completed 2026-02-05
 - [x] Store surgeons as local CSV (like procedures.csv)
@@ -162,6 +164,16 @@ Settings subtabs use purple shades (#ede9fe inactive, #ddd6fe active).
   - Updated SettingsPanel to use surgeons API
   - Updated CaseNumberInput to fetch surgeons from API
   - Factory reset no longer affects surgeons (stored separately)
+- [x] Auto-load images from default source folder on startup
+  - Created `/api/source-images` and `/api/source-image` endpoints
+  - ImageSorter fetches from server on mount
+  - Sort flow handles both server-loaded and folder-picker images
+- [x] Zebra striping on patients table rows
+- [x] Surgeon name formatting in patients table (strip dr_, capitalize)
+- [x] Image sorting flow: write → verify → delete source → save patient
+- [x] Bun bundling for standalone Mac executable
+  - Cross-compile from Linux to Mac using `bun build --compile`
+  - `bun run package:mac` creates 22MB distributable
 
 ## Completed 2026-02-03 (Session 2)
 - [x] Reorganized ImageSorter layout: 50/50 horizontal split
