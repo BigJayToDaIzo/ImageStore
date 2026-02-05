@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { mkdir, writeFile, access, constants } from 'node:fs/promises';
+import { mkdir, writeFile, readFile, access, unlink, copyFile, constants } from 'node:fs/promises';
 import { join, extname } from 'node:path';
 import { findPatientByCase, createPatient } from '../../lib/patients';
 import { loadSettings } from '../../lib/settings';
@@ -71,31 +71,11 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // Save new patient to CSV if patient data is provided
-    const firstName = formData.get('firstName') as string | null;
-    const lastName = formData.get('lastName') as string | null;
-    const dob = formData.get('dob') as string | null;
-    const surgeon = formData.get('surgeon') as string | null;
-
-    if (firstName && lastName) {
-      // Check if patient already exists
-      const existing = await findPatientByCase(metadata.caseNumber);
-      if (!existing) {
-        await createPatient({
-          case_number: metadata.caseNumber,
-          first_name: firstName,
-          last_name: lastName,
-          dob: dob || '',
-          surgery_date: metadata.surgeryDate,
-          primary_procedure: metadata.procedureType,
-          surgeon: surgeon || ''
-        });
-      }
-    }
-
-    // Get the file
+    // Get the file - either from upload or server path
     const file = formData.get('file') as File | null;
-    if (!file) {
+    const serverPath = formData.get('serverPath') as string | null;
+
+    if (!file && !serverPath) {
       return new Response(JSON.stringify({ error: 'No file provided' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
@@ -109,12 +89,51 @@ export const POST: APIRoute = async ({ request }) => {
     // Create directory structure
     await mkdir(dir, { recursive: true });
 
-    // Write file
-    const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(destPath, buffer);
+    // Write file - either from upload or copy from source
+    if (file) {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      await writeFile(destPath, buffer);
+    } else if (serverPath) {
+      // Server path - copy from source root
+      const sourcePath = join(settings.sourceRoot, serverPath);
+      await copyFile(sourcePath, destPath);
+    }
 
     // Verify write succeeded
     await access(destPath, constants.F_OK);
+
+    // Delete source file if path provided
+    const sourcePath = formData.get('sourcePath') as string | null;
+    if (sourcePath && settings.sourceRoot) {
+      const fullSourcePath = join(settings.sourceRoot, sourcePath);
+      try {
+        await unlink(fullSourcePath);
+      } catch (deleteError) {
+        // Source deletion is non-fatal - file may be from a different location
+        console.warn('Could not delete source file:', fullSourcePath, deleteError);
+      }
+    }
+
+    // File write confirmed - now save patient data if provided
+    const firstName = formData.get('firstName') as string | null;
+    const lastName = formData.get('lastName') as string | null;
+    const dob = formData.get('dob') as string | null;
+    const surgeon = formData.get('surgeon') as string | null;
+
+    if (firstName && lastName) {
+      const existing = await findPatientByCase(metadata.caseNumber);
+      if (!existing) {
+        await createPatient({
+          case_number: metadata.caseNumber,
+          first_name: firstName,
+          last_name: lastName,
+          dob: dob || '',
+          surgery_date: metadata.surgeryDate,
+          primary_procedure: metadata.procedureType,
+          surgeon: surgeon || ''
+        });
+      }
+    }
 
     return new Response(JSON.stringify({
       success: true,

@@ -2,9 +2,13 @@
 	let {
 		selectedFile = null,
 		selectedFilename = '',
+		selectedPath = '', // For server-loaded images
 		onSorted = () => {},
 		isDirty = $bindable(false)
 	} = $props();
+
+	// Check if we have an image (either File object or server path)
+	let hasImage = $derived(selectedFile !== null || selectedPath !== '');
 
 	// Settings-driven defaults
 	let settingsLoaded = $state(false);
@@ -22,17 +26,16 @@
 		{ id: 'liposuction', name: 'Liposuction' },
 	]);
 
-	// Load settings on mount
-	// Load settings and procedures on mount
+	// Load settings, procedures, and surgeons on mount
 	$effect(() => {
 		if (!settingsLoaded) {
 			Promise.all([
 				fetch('/api/settings').then(res => res.ok ? res.json() : null),
-				fetch('/api/procedures').then(res => res.ok ? res.json() : null)
+				fetch('/api/procedures').then(res => res.ok ? res.json() : null),
+				fetch('/api/surgeons').then(res => res.ok ? res.json() : null)
 			])
-				.then(([settings, procs]) => {
+				.then(([settings, procs, surgs]) => {
 					if (settings) {
-						surgeonsList = settings.surgeons || [];
 						if (settings.defaults) {
 							defaultProcedure = settings.defaults.procedure || 'rhinoplasty';
 							defaultImageType = settings.defaults.imageType || 'pre_op';
@@ -48,6 +51,9 @@
 					}
 					if (procs && procs.length > 0) {
 						proceduresList = procs;
+					}
+					if (surgs && surgs.length > 0) {
+						surgeonsList = surgs;
 					}
 					settingsLoaded = true;
 				})
@@ -509,14 +515,28 @@
 	}
 
 	async function handleSubmit() {
-		if (!formComplete() || !selectedFile || isSubmitting) return;
+		if (!formComplete() || !hasImage || isSubmitting) return;
 
 		isSubmitting = true;
 		submitError = '';
 
 		try {
 			const formData = new FormData();
-			formData.append('file', selectedFile);
+
+			// Handle both File object (from folder picker) and server path (from default source)
+			if (selectedFile) {
+				formData.append('file', selectedFile);
+				formData.append('originalFilename', selectedFilename || selectedFile.name);
+				if (selectedFile.webkitRelativePath) {
+					formData.append('sourcePath', selectedFile.webkitRelativePath);
+				}
+			} else if (selectedPath) {
+				// Server-loaded image - send path instead of file
+				formData.append('serverPath', selectedPath);
+				formData.append('originalFilename', selectedFilename);
+				formData.append('sourcePath', selectedPath);
+			}
+
 			formData.append('caseNumber', caseNumber);
 			formData.append('consentStatus', consentStatus);
 			if (consentStatus === 'consent') {
@@ -527,7 +547,6 @@
 			formData.append('imageType', imageType);
 			formData.append('angle', angle);
 			formData.append('surgeon', surgeon);
-			formData.append('originalFilename', selectedFilename || selectedFile.name);
 
 			// Send patient data for new patients (not selected from existing)
 			if (!selectedPatient && firstName && lastName) {
@@ -827,7 +846,7 @@
 			<button
 				type="button"
 				class="submit-btn"
-				disabled={!formComplete() || !selectedFile || isSubmitting}
+				disabled={!formComplete() || !hasImage || isSubmitting}
 				onclick={handleSubmit}
 			>
 				{isSubmitting ? 'Sorting...' : 'Sort Image'}

@@ -2,16 +2,10 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 
-export interface Surgeon {
-  id: string;
-  name: string;
-}
-
 export interface Settings {
   destinationRoot: string;
   sourceRoot: string;
   dataPath: string;
-  surgeons: Surgeon[];
   defaults: {
     procedure: string;
     imageType: string;
@@ -48,7 +42,6 @@ const DEFAULT_SETTINGS: Settings = {
   destinationRoot: DEFAULT_DEST,
   sourceRoot: DEFAULT_SOURCE,
   dataPath: '',
-  surgeons: [],
   defaults: {
     procedure: 'rhinoplasty',
     imageType: 'pre_op',
@@ -74,7 +67,6 @@ export async function loadSettings(): Promise<Settings> {
       destinationRoot: stored.destinationRoot ?? DEFAULT_SETTINGS.destinationRoot,
       sourceRoot: stored.sourceRoot ?? DEFAULT_SETTINGS.sourceRoot,
       dataPath: stored.dataPath ?? DEFAULT_SETTINGS.dataPath,
-      surgeons: stored.surgeons ?? DEFAULT_SETTINGS.surgeons,
       defaults: {
         procedure: stored.defaults?.procedure ?? DEFAULT_SETTINGS.defaults.procedure,
         imageType: stored.defaults?.imageType ?? DEFAULT_SETTINGS.defaults.imageType,
@@ -98,7 +90,6 @@ export async function saveSettings(settings: Partial<Settings>): Promise<Setting
     destinationRoot: settings.destinationRoot ?? current.destinationRoot,
     sourceRoot: settings.sourceRoot ?? current.sourceRoot,
     dataPath: settings.dataPath ?? current.dataPath,
-    surgeons: settings.surgeons ?? current.surgeons,
     defaults: {
       procedure: settings.defaults?.procedure ?? current.defaults.procedure,
       imageType: settings.defaults?.imageType ?? current.defaults.imageType,

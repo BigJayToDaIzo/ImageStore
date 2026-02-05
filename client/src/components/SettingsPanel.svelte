@@ -3,7 +3,6 @@
 		destinationRoot: '',
 		sourceRoot: '',
 		dataPath: '',
-		surgeons: [],
 		defaults: {
 			procedure: 'rhinoplasty',
 			imageType: 'pre_op',
@@ -13,8 +12,9 @@
 		},
 	});
 
-	// Procedures stored separately in CSV
+	// Procedures and surgeons stored separately in CSV
 	let procedures = $state([]);
+	let surgeons = $state([]);
 
 	let isLoading = $state(true);
 	let isSaving = $state(false);
@@ -58,12 +58,24 @@
 		return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 	}
 
-	// Surgeon CRUD (auto-saves to settings)
+	// Surgeon CRUD (persisted to CSV via API)
 	async function addSurgeon() {
 		if (!newSurgeonName.trim()) return;
-		settings.surgeons = [...settings.surgeons, { id: generateId(), name: newSurgeonName.trim() }];
-		newSurgeonName = '';
-		await saveSettingsQuiet();
+		const id = generateId();
+		try {
+			const res = await fetch('/api/surgeons', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id, name: newSurgeonName.trim() })
+			});
+			if (res.ok) {
+				const newSurg = await res.json();
+				surgeons = [...surgeons, newSurg];
+				newSurgeonName = '';
+			}
+		} catch (e) {
+			console.error('Failed to add surgeon:', e);
+		}
 	}
 
 	function startEditSurgeon(surgeon) {
@@ -73,12 +85,21 @@
 
 	async function saveEditSurgeon() {
 		if (!editingSurgeonName.trim()) return;
-		settings.surgeons = settings.surgeons.map(s =>
-			s.id === editingSurgeonId ? { ...s, name: editingSurgeonName.trim() } : s
-		);
+		try {
+			const res = await fetch('/api/surgeons', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id: editingSurgeonId, name: editingSurgeonName.trim() })
+			});
+			if (res.ok) {
+				const updated = await res.json();
+				surgeons = surgeons.map(s => s.id === editingSurgeonId ? updated : s);
+			}
+		} catch (e) {
+			console.error('Failed to update surgeon:', e);
+		}
 		editingSurgeonId = null;
 		editingSurgeonName = '';
-		await saveSettingsQuiet();
 	}
 
 	function cancelEditSurgeon() {
@@ -87,23 +108,20 @@
 	}
 
 	async function deleteSurgeonById(id) {
-		settings.surgeons = settings.surgeons.filter(s => s.id !== id);
-		if (settings.defaults.surgeon === id) {
-			settings.defaults.surgeon = '';
-		}
-		await saveSettingsQuiet();
-	}
-
-	// Quiet save (no success message)
-	async function saveSettingsQuiet() {
 		try {
-			await fetch('/api/settings', {
-				method: 'PUT',
+			const res = await fetch('/api/surgeons', {
+				method: 'DELETE',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(settings),
+				body: JSON.stringify({ id })
 			});
+			if (res.ok) {
+				surgeons = surgeons.filter(s => s.id !== id);
+				if (settings.defaults.surgeon === id) {
+					settings.defaults.surgeon = surgeons[0]?.id || '';
+				}
+			}
 		} catch (e) {
-			console.error('Failed to save settings:', e);
+			console.error('Failed to delete surgeon:', e);
 		}
 	}
 
@@ -293,23 +311,42 @@
 		surgeonsImportErr = '';
 
 		try {
-			const res = await fetch('/api/import-csv', {
+			// First read the external CSV
+			const readRes = await fetch('/api/import-csv', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					path: surgeonsCsvPath,
 					type: 'surgeons',
-					existingIds: settings.surgeons.map(s => s.id),
+					existingIds: surgeons.map(s => s.id),
 				}),
 			});
 
-			const data = await res.json();
-			if (res.ok) {
-				settings.surgeons = [...settings.surgeons, ...data.items];
-				surgeonsImportMsg = `Imported ${data.imported} (${data.skipped} skipped)`;
-				setTimeout(() => surgeonsImportMsg = '', 5000);
+			const readData = await readRes.json();
+			if (!readRes.ok) {
+				surgeonsImportErr = readData.error || 'Import failed';
+				return;
+			}
+
+			// Then save to surgeons API (which persists to CSV)
+			if (readData.items.length > 0) {
+				const saveRes = await fetch('/api/surgeons', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(readData.items),
+				});
+
+				if (saveRes.ok) {
+					const result = await saveRes.json();
+					surgeons = result.surgeons;
+					surgeonsImportMsg = `Imported ${result.imported} (${result.skipped} skipped)`;
+					setTimeout(() => surgeonsImportMsg = '', 5000);
+				} else {
+					surgeonsImportErr = 'Failed to save imported surgeons';
+				}
 			} else {
-				surgeonsImportErr = data.error || 'Import failed';
+				surgeonsImportMsg = `Imported 0 (${readData.skipped} skipped)`;
+				setTimeout(() => surgeonsImportMsg = '', 5000);
 			}
 		} catch (e) {
 			surgeonsImportErr = e instanceof Error ? e.message : 'Import failed';
@@ -385,10 +422,11 @@
 
 	async function loadAllSettings() {
 		try {
-			// Load settings and procedures in parallel
-			const [settingsRes, proceduresRes] = await Promise.all([
+			// Load settings, procedures, and surgeons in parallel
+			const [settingsRes, proceduresRes, surgeonsRes] = await Promise.all([
 				fetch('/api/settings'),
-				fetch('/api/procedures')
+				fetch('/api/procedures'),
+				fetch('/api/surgeons')
 			]);
 
 			if (settingsRes.ok) {
@@ -399,6 +437,10 @@
 
 			if (proceduresRes.ok) {
 				procedures = await proceduresRes.json();
+			}
+
+			if (surgeonsRes.ok) {
+				surgeons = await surgeonsRes.json();
 			}
 		} catch (e) {
 			console.error('Failed to load settings:', e);
@@ -656,7 +698,7 @@
 								<label for="default_surgeon">Default Surgeon</label>
 								<select id="default_surgeon" bind:value={settings.defaults.surgeon}>
 									<option value="">None</option>
-									{#each settings.surgeons as surgeon}
+									{#each surgeons as surgeon}
 										<option value={surgeon.id}>{surgeon.name}</option>
 									{/each}
 								</select>
@@ -675,7 +717,7 @@
 							{/if}
 
 							<div class="list-container">
-								{#each settings.surgeons as surgeon}
+								{#each surgeons as surgeon}
 									<div class="list-item">
 										{#if editingSurgeonId === surgeon.id}
 											<input
@@ -694,7 +736,7 @@
 										{/if}
 									</div>
 								{/each}
-								{#if settings.surgeons.length === 0}
+								{#if surgeons.length === 0}
 									<div class="empty-list">No surgeons added yet</div>
 								{/if}
 							</div>
@@ -784,10 +826,9 @@
 				<p>This will reset all settings to factory defaults:</p>
 				<ul>
 					<li>Storage paths</li>
-					<li>All surgeons (removed)</li>
 					<li>Form defaults (procedure, image type, angle, etc.)</li>
 				</ul>
-				<p class="warning-text">Patient data and procedures are stored separately and will not be affected.</p>
+				<p class="warning-text">Patient data, procedures, and surgeons are stored separately and will not be affected.</p>
 			</div>
 			<div class="modal-footer">
 				<button type="button" class="btn-secondary" onclick={() => showResetModal = false}>Cancel</button>

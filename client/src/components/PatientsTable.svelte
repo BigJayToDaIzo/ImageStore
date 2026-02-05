@@ -6,25 +6,33 @@
 	let isLoading = $state(true);
 	let error = $state('');
 
-	// Surgeons list from settings
+	// Surgeons list from API
 	let surgeonsList = $state<{id: string; name: string}[]>([]);
 
 	// Load surgeons list on mount
 	$effect(() => {
-		fetch('/api/settings')
-			.then(res => res.ok ? res.json() : null)
-			.then(settings => {
-				if (settings?.surgeons) {
-					surgeonsList = settings.surgeons;
-				}
+		fetch('/api/surgeons')
+			.then(res => res.ok ? res.json() : [])
+			.then(surgeons => {
+				surgeonsList = surgeons;
 			})
 			.catch(() => {});
 	});
 
+	function formatSurgeonName(name: string): string {
+		// Strip "dr_" or "Dr_" prefix and capitalize properly
+		let formatted = name.replace(/^dr[_\s]*/i, '');
+		// Capitalize first letter of each word
+		return formatted.split(/[\s_]+/).map(word =>
+			word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+		).join(' ');
+	}
+
 	function getSurgeonName(surgeonId: string): string {
 		if (!surgeonId) return '';
 		const surgeon = surgeonsList.find(s => s.id === surgeonId);
-		return surgeon?.name || surgeonId;
+		const name = surgeon?.name || surgeonId;
+		return formatSurgeonName(name);
 	}
 
 	// Editing state
@@ -647,8 +655,12 @@
 		vertical-align: middle;
 	}
 
+	.patients-table tbody tr:nth-child(even):not(.add-row):not(.error-row) {
+		background: #faf7f5;
+	}
+
 	.patients-table tr:hover:not(.add-row):not(.error-row) {
-		background: #fafafa;
+		background: #fff3eb;
 	}
 
 	.patients-table tr.editing {

@@ -161,8 +161,8 @@ All other metadata (consent level, image type, angle) stored in folder structure
 - [ ] Surgery packages (multiple procedures per surgery, returning patients)
 - [ ] Clickable image folder links (open in Finder/file manager instead of copy path)
 - [x] Settings tab for customizable defaults (2026-02-03)
-- [ ] Persist surgeons/procedures to CSV (like patients.csv)
+- [x] Persist surgeons/procedures to CSV (like patients.csv) (2026-02-05)
 - [ ] Procedure favorites with "Other..." filter
 
 ---
-*Last updated: 2026-02-03*
+*Last updated: 2026-02-05*

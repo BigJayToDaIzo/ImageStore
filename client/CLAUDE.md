@@ -74,6 +74,20 @@ REST API for procedures CRUD.
 - **PUT:** Update procedure by id
 - **DELETE:** Delete procedure by id
 
+### surgeons.ts
+CSV-based surgeons storage (like procedures.csv).
+- **Location:** `{dataDir}/surgeons.csv`
+- **Schema:** `id, name`
+- **Default surgeons:** *(empty - add via Settings)*
+- **Functions:** `loadSurgeons()`, `saveSurgeons()`, `createSurgeon()`, `updateSurgeon()`, `deleteSurgeon()`, `importSurgeons()`
+
+### /api/surgeons
+REST API for surgeons CRUD.
+- **GET:** List all surgeons
+- **POST:** Create single or bulk import (array)
+- **PUT:** Update surgeon by id
+- **DELETE:** Delete surgeon by id
+
 ## Default Settings
 
 On first run, ImageStore creates config/data files with factory defaults. Once modified, changes persist and become the new defaults for future sessions.
@@ -81,8 +95,8 @@ On first run, ImageStore creates config/data files with factory defaults. Once m
 ### File Locations (XDG Standard)
 | Purpose | Path | Contents |
 |---------|------|----------|
-| Config | `~/.config/imagestore/settings.json` | Settings, surgeons list |
-| App Data | `~/.local/share/imagestore/` | `procedures.csv` |
+| Config | `~/.config/imagestore/settings.json` | Settings (paths, defaults) |
+| App Data | `~/.local/share/imagestore/` | `procedures.csv`, `surgeons.csv` |
 | Patient Data | `{destinationRoot}/patients.csv` | Patient index (lives with images) |
 | Images | `~/Documents/ImageStore/sorted/` | Sorted patient images |
 | Source | `~/Documents/ImageStore/unsorted/` | Unsorted images to process |
@@ -135,12 +149,19 @@ Settings subtabs use purple shades (#ede9fe inactive, #ddd6fe active).
 - Read-only when case number exists (edit via Patients tab instead)
 
 ## Next Session
-- [ ] Store surgeons as local CSV (like procedures.csv)
 - [ ] Procedure favorites filter: show favorites first, "Other..." reveals full list with type-to-filter
-- [ ] Default source path section in Storage tab
 - [ ] Filter for malformed case numbers once schema is defined (schema TBD)
 - [ ] Figure out how to manage surgery packages (multiple procedures per surgery, bundled pricing, etc.)
 - [ ] Show clickable links to browse images in file system for existing case numbers
+
+## Completed 2026-02-05
+- [x] Store surgeons as local CSV (like procedures.csv)
+  - Created `surgeons.ts` library with full CRUD operations
+  - Created `/api/surgeons` REST endpoint
+  - Removed surgeons from settings.json (now in `~/.local/share/imagestore/surgeons.csv`)
+  - Updated SettingsPanel to use surgeons API
+  - Updated CaseNumberInput to fetch surgeons from API
+  - Factory reset no longer affects surgeons (stored separately)
 
 ## Completed 2026-02-03 (Session 2)
 - [x] Reorganized ImageSorter layout: 50/50 horizontal split
@@ -192,4 +213,4 @@ Settings subtabs use purple shades (#ede9fe inactive, #ddd6fe active).
 - [x] Submit button with form validation
 
 ---
-*Last updated: 2026-02-03*
+*Last updated: 2026-02-05*

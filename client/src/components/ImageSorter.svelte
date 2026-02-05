@@ -10,11 +10,47 @@
 	let fileInput;
 	let formIsDirty = $state(false);
 	let caseNumberInputRef;
+	let isLoading = $state(true);
+	let loadError = $state('');
+	let isServerLoaded = $state(false); // Track if images came from server vs file picker
 
 	// Modal state
 	let showSwitchModal = $state(false);
 	let pendingIndex = $state(-1);
 	let pendingFolderFiles = $state(null);
+
+	// Load images from default source on mount
+	$effect(() => {
+		loadSourceImages();
+	});
+
+	async function loadSourceImages() {
+		isLoading = true;
+		loadError = '';
+		try {
+			const res = await fetch('/api/source-images');
+			if (res.ok) {
+				const data = await res.json();
+				if (data.images && data.images.length > 0) {
+					folderPath = data.sourceRoot;
+					images = data.images.map(img => ({
+						src: `/api/source-image?path=${encodeURIComponent(img.path)}`,
+						name: img.name,
+						path: img.path, // Server path for sorting
+						file: null // No File object for server-loaded images
+					}));
+					selectedIndex = 0;
+					isServerLoaded = true;
+				} else if (data.error) {
+					loadError = data.error;
+				}
+			}
+		} catch (e) {
+			console.error('Failed to load source images:', e);
+		} finally {
+			isLoading = false;
+		}
+	}
 
 	// Show hovered image if hovering, otherwise show selected
 	let previewImage = $derived(
@@ -113,10 +149,12 @@
 		images = imageFiles.map(file => ({
 			src: URL.createObjectURL(file),
 			name: file.name,
+			path: file.webkitRelativePath, // Store full relative path
 			file: file
 		}));
 		selectedIndex = 0;
 		hoveredIndex = -1;
+		isServerLoaded = false;
 	}
 </script>
 
@@ -135,9 +173,13 @@
 		<div class="preview-area">
 			{#if previewImage}
 				<img src={previewImage.src} alt={previewImage.name} />
+			{:else if isLoading}
+				<div class="empty-state">
+					<p>Loading source images...</p>
+				</div>
 			{:else if images.length === 0}
 				<div class="empty-state">
-					<p>No source folder selected</p>
+					<p>{loadError || 'No images in source folder'}</p>
 					<button class="select-folder-btn" onclick={openFolderPicker}>Select Source Folder</button>
 				</div>
 			{:else}
@@ -178,6 +220,7 @@
 			bind:this={caseNumberInputRef}
 			selectedFile={images[selectedIndex]?.file}
 			selectedFilename={images[selectedIndex]?.name}
+			selectedPath={images[selectedIndex]?.path}
 			onSorted={handleImageSorted}
 			bind:isDirty={formIsDirty}
 		/>
