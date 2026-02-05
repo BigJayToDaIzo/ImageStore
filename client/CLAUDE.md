@@ -3,8 +3,10 @@
 Astro + Svelte frontend for the ImageStore application.
 
 ## Technology
-- **Framework:** Astro
-- **Interactive Islands:** Svelte (as needed)
+- **Framework:** Astro (SSR with Node adapter)
+- **Interactive Islands:** Svelte 5
+- **Desktop App:** Electron (for distribution)
+- **Runtime:** Bun (development)
 
 ## Views
 - **Sort View:** Main workflow - display image, fill form, move to next
@@ -148,6 +150,31 @@ Settings subtabs use purple shades (#ede9fe inactive, #ddd6fe active).
 - Editable only when entering a new case number
 - Read-only when case number exists (edit via Patients tab instead)
 
+## Packaging & Distribution
+
+### Development
+```bash
+bun run dev          # Start Astro dev server at localhost:4321
+bun run build        # Build for production
+bun run electron:dev # Build + run in Electron window
+```
+
+### Building Distributables
+```bash
+bun run dist:mac       # Mac ARM (M1/M2/M3) .dmg
+bun run dist:mac-intel # Mac Intel .dmg
+bun run dist:win       # Windows .exe installer
+bun run dist:linux     # Linux AppImage
+```
+
+Output goes to `release/` folder.
+
+### Architecture
+- Electron main process (`electron/main.js`) spawns the Astro Node server
+- BrowserWindow loads `http://localhost:4321`
+- All file system operations happen server-side via `/api/*` endpoints
+- Clean separation enables future migration to Tauri if bundle size matters
+
 ## Next Session
 - [ ] Procedure favorites filter: show favorites first, "Other..." reveals full list with type-to-filter
 - [ ] Filter for malformed case numbers once schema is defined (schema TBD)
@@ -171,9 +198,10 @@ Settings subtabs use purple shades (#ede9fe inactive, #ddd6fe active).
 - [x] Zebra striping on patients table rows
 - [x] Surgeon name formatting in patients table (strip dr_, capitalize)
 - [x] Image sorting flow: write → verify → delete source → save patient
-- [x] Bun bundling for standalone Mac executable
-  - Cross-compile from Linux to Mac using `bun build --compile`
-  - `bun run package:mac` creates 22MB distributable
+- [x] Electron packaging for desktop distribution
+  - `electron/main.js` - main process starts Astro server and opens BrowserWindow
+  - `bun run dist:mac` / `dist:mac-intel` / `dist:win` / `dist:linux` build commands
+  - Creates proper .app bundle for Mac (drag to Applications folder)
 
 ## Completed 2026-02-03 (Session 2)
 - [x] Reorganized ImageSorter layout: 50/50 horizontal split
@@ -225,4 +253,4 @@ Settings subtabs use purple shades (#ede9fe inactive, #ddd6fe active).
 - [x] Submit button with form validation
 
 ---
-*Last updated: 2026-02-05*
+*Last updated: 2026-02-05 (Electron packaging)*
