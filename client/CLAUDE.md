@@ -172,6 +172,12 @@ bun run dist:linux     # Linux AppImage
 
 Output goes to `release/` folder.
 
+### CI/CD Releases
+```bash
+git tag v0.1.0 && git push --tags  # Triggers GitHub Actions build + release
+```
+Workflow (`.github/workflows/release.yml`) builds all 3 platforms on native runners and publishes to GitHub Releases. Can also be triggered manually from the Actions tab.
+
 ### Architecture
 - Electron main process (`electron/main.js`) spawns the Astro Node server
 - BrowserWindow loads `http://localhost:4321`
@@ -183,8 +189,21 @@ Output goes to `release/` folder.
 - [ ] Filter for malformed case numbers once schema is defined (schema TBD)
 - [ ] Figure out how to manage surgery packages (multiple procedures per surgery, bundled pricing, etc.)
 - [ ] Show clickable links to browse images in file system for existing case numbers
-- [ ] Set up GitHub Releases for distribution (auto-publish on tags)
 - [ ] Procedure-specific form behaviors (e.g., tummy tuck cycles angles front→left→back→right, BBL defaults to back)
+
+## Completed 2026-02-06
+- [x] GitHub Actions CI/CD for cross-platform releases
+  - `.github/workflows/release.yml` builds macOS DMG, Windows NSIS, Linux AppImage
+  - Triggers on tag push (`v*`) or manual workflow_dispatch
+  - Auto-publishes GitHub Releases with generated changelog
+- [x] Fixed `dmg-license` build failure on Linux
+  - Smart `postinstall` stub: creates no-op shim only when real package unavailable
+  - macOS CI runners use the real `dmg-license` (optional dep of `dmg-builder`)
+- [x] Custom DSLR app icon with medical cross badge
+  - SVG source at `build/icon.svg`, PNG at `build/icon.png`
+  - Wired into electron-builder, favicon, and app header
+- [x] Added `description` and `author` fields to package.json
+- [x] App header: icon + "ImageStore" branding in top bar
 
 ## Completed 2026-02-05
 - [x] Store surgeons as local CSV (like procedures.csv)
@@ -256,4 +275,4 @@ Output goes to `release/` folder.
 - [x] Submit button with form validation
 
 ---
-*Last updated: 2026-02-05 (Electron packaging)*
+*Last updated: 2026-02-06 (CI/CD + app icon)*

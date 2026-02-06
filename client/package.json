@@ -2,6 +2,8 @@
   "name": "imagestore-client",
   "type": "module",
   "version": "0.0.1",
+  "description": "Medical image sorting and patient management",
+  "author": "JM <me@josephmyers.dev>",
   "main": "electron/main.js",
   "scripts": {
     "dev": "astro dev",
@@ -32,6 +34,7 @@
   "build": {
     "appId": "com.imagestore.app",
     "productName": "ImageStore",
+    "icon": "build/icon.png",
     "directories": {
       "output": "release"
     },
