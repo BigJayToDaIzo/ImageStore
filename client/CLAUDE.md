@@ -1,5 +1,8 @@
 # ImageStore Client
 
+## CRITICAL: No Git Operations
+**Do NOT run any git commands** (commit, add, rm, push, pull, checkout, reset, stash, etc.) without the user's specific and explicit consent. This consent is rarely given. The user manages their own git workflow.
+
 Astro + Svelte frontend for the ImageStore application.
 
 ## Technology
