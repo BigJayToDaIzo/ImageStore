@@ -15,7 +15,8 @@
     "dist:mac": "bun run build && electron-builder --mac",
     "dist:mac-intel": "bun run build && electron-builder --mac --x64",
     "dist:win": "bun run build && electron-builder --win",
-    "dist:linux": "bun run build && electron-builder --linux"
+    "dist:linux": "bun run build && electron-builder --linux",
+    "postinstall": "node -e \"try{require.resolve('dmg-license')}catch(e){var fs=require('fs');fs.mkdirSync('node_modules/dmg-license',{recursive:true});fs.writeFileSync('node_modules/dmg-license/index.js','module.exports={dmgLicenseFromJSON:async()=>null};')}\""
   },
   "dependencies": {
     "@astrojs/node": "^9.5.2",
