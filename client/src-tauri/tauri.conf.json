@@ -36,6 +36,7 @@
     "category": "Medical",
     "resources": {
       "../dist/": "dist/"
-    }
+    },
+    "externalBin": ["binaries/node"]
   }
 }

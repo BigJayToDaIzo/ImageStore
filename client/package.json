@@ -12,7 +12,8 @@
     "test": "bun test",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "NO_STRIP=true tauri build"
+    "tauri:build": "NO_STRIP=true tauri build",
+    "download-node": "node ../scripts/download-node.mjs"
   },
   "dependencies": {
     "@astrojs/node": "^9.5.2",

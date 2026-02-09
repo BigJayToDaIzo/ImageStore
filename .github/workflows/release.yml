@@ -18,16 +18,20 @@ jobs:
           - os: macos-latest
             args: --target aarch64-apple-darwin
             rust-targets: aarch64-apple-darwin
+            node-target: aarch64-apple-darwin
             artifact: ImageStore-mac-arm
           - os: macos-latest
             args: --target x86_64-apple-darwin
             rust-targets: x86_64-apple-darwin
+            node-target: x86_64-apple-darwin
             artifact: ImageStore-mac-intel
           - os: windows-latest
             args:
+            node-target:
             artifact: ImageStore-win
           - os: ubuntu-22.04
             args:
+            node-target:
             artifact: ImageStore-linux
 
     runs-on: ${{ matrix.os }}
@@ -53,6 +57,9 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+
+      - name: Download Node binary for sidecar
+        run: node ../scripts/download-node.mjs ${{ matrix.node-target && format('--target {0}', matrix.node-target) || '' }}
 
       - name: Build and bundle
         env:
