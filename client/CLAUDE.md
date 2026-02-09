@@ -176,8 +176,11 @@ Output goes to `release/` folder.
 - Clean separation enables future migration to Tauri if bundle size matters
 
 ## Next Session
-- [ ] Procedure favorites filter: show favorites first, "Other..." reveals full list with type-to-filter
 - [ ] Filter for malformed case numbers once schema is defined (schema TBD)
+- [ ] Test Electron build on Mac (`bun run dist:mac-intel`)
+
+## Post-MVP
+- [ ] Procedure favorites filter: show favorites first, "Other..." reveals full list with type-to-filter
 - [ ] Figure out how to manage surgery packages (multiple procedures per surgery, bundled pricing, etc.)
 - [ ] Show clickable links to browse images in file system for existing case numbers
 - [ ] Set up GitHub Releases for distribution (auto-publish on tags)
