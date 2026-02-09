@@ -1,5 +1,8 @@
 # ImageStore - HIPAA-Compliant Media Management
 
+## CRITICAL: No Git Operations
+**Do NOT run any git commands** (commit, add, rm, push, pull, checkout, reset, stash, etc.) without the user's specific and explicit consent. This consent is rarely given. The user manages their own git workflow.
+
 ## Project Overview
 Application for a cosmetic surgery center to help the photographer sort and safely store HIPAA-compliant images and videos.
 
@@ -154,6 +157,32 @@ All other metadata (consent level, image type, angle) stored in folder structure
 - Cosmetic surgery before/after photos are PHI under HIPAA
 - Images will be sorted into safe buckets for downstream users (web developer, social media manager, etc.)
 - Need to track which images are cleared for public use vs. internal only
+
+## Testing Requirements
+
+**TDD (Test-Driven Development) with Red-Green-Refactor:**
+1. **Red:** Write the test first - it should fail
+2. **Review:** Human reviews and approves the test before proceeding
+3. **Green:** Write minimal code to make the test pass
+4. **Refactor:** Clean up while keeping tests green
+
+**Coverage target: 80% minimum** for TypeScript in `/client/src/lib/`.
+
+```bash
+cd client && bun test              # Run all tests
+cd client && bun test --coverage   # Run with coverage report
+```
+
+Test files use `.test.ts` suffix alongside source files.
+
+**MANDATORY:** Run test suite after ANY API or library changes. No exceptions.
+
+**Coverage review is essential:** After running coverage, review missed lines carefully. Uncovered lines often reveal:
+- Untested fallback paths (e.g., `getDataPath()` settings fallback vs env var path)
+- Edge cases in parsing logic (e.g., escaped quotes `""` → `"` in CSV)
+- Branching in ternaries and conditionals (e.g., `settings.dataPath ? ... : getDataDir()`)
+
+These missed lines frequently expose unconsidered edge cases that would otherwise become production bugs.
 
 ## Post-MVP Features
 - [ ] Source image sorting (by name, date, size, etc.)

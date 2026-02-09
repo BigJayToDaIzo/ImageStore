@@ -2,6 +2,8 @@
   "name": "imagestore-client",
   "type": "module",
   "version": "0.0.1",
+  "description": "Medical image sorting and patient management",
+  "author": "JM <me@josephmyers.dev>",
   "main": "electron/main.js",
   "scripts": {
     "dev": "astro dev",
@@ -15,12 +17,13 @@
     "dist:mac": "bun run build && electron-builder --mac",
     "dist:mac-intel": "bun run build && electron-builder --mac --x64",
     "dist:win": "bun run build && electron-builder --win",
-    "dist:linux": "bun run build && electron-builder --linux"
+    "dist:linux": "bun run build && electron-builder --linux",
+    "postinstall": "node -e \"try{require.resolve('dmg-license')}catch(e){var fs=require('fs');fs.mkdirSync('node_modules/dmg-license',{recursive:true});fs.writeFileSync('node_modules/dmg-license/index.js','module.exports={dmgLicenseFromJSON:async()=>null};')}\""
   },
   "dependencies": {
     "@astrojs/node": "^9.5.2",
     "@astrojs/svelte": "^7.2.5",
-    "astro": "^5.16.15",
+    "astro": "5.17.1",
     "svelte": "^5.48.5",
     "typescript": "^5.9.3"
   },
@@ -31,6 +34,7 @@
   "build": {
     "appId": "com.imagestore.app",
     "productName": "ImageStore",
+    "icon": "build/icon.png",
     "directories": {
       "output": "release"
     },

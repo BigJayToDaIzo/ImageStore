@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'bun:test';
 import { mkdir, rm, writeFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
@@ -16,28 +16,41 @@ import {
 const TEST_DIR = '/tmp/imagestore-test-data';
 const TEST_CSV = join(TEST_DIR, 'patients.csv');
 
+// Set once for all tests
+process.env.IMAGESTORE_DATA = TEST_DIR;
+
 describe('patients', () => {
-  beforeEach(async () => {
+  beforeAll(async () => {
     await mkdir(TEST_DIR, { recursive: true });
-    process.env.IMAGESTORE_DATA = TEST_DIR;
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     await rm(TEST_DIR, { recursive: true, force: true });
-    delete process.env.IMAGESTORE_DATA;
+  });
+
+  beforeEach(async () => {
+    // Clean CSV between tests
+    await rm(TEST_CSV, { force: true });
   });
 
   describe('getDataPath', () => {
-    it('should use IMAGESTORE_DATA env var when set', () => {
+    it('should use IMAGESTORE_DATA env var when set', async () => {
       process.env.IMAGESTORE_DATA = '/custom/path';
-      expect(getDataPath()).toBe('/custom/path/patients.csv');
+      expect(await getDataPath()).toBe('/custom/path/patients.csv');
+      process.env.IMAGESTORE_DATA = TEST_DIR; // restore for other tests
     });
 
-    it('should fall back to IMAGESTORE_DEST/data when IMAGESTORE_DATA not set', () => {
+    it('should fall back to settings when IMAGESTORE_DATA not set', async () => {
+      const originalValue = process.env.IMAGESTORE_DATA;
       delete process.env.IMAGESTORE_DATA;
-      process.env.IMAGESTORE_DEST = '/dest/path';
-      expect(getDataPath()).toBe('/dest/path/data/patients.csv');
-      delete process.env.IMAGESTORE_DEST;
+
+      const path = await getDataPath();
+
+      process.env.IMAGESTORE_DATA = originalValue;
+
+      // Should use settings-based path (destinationRoot/patients.csv)
+      expect(path).toContain('patients.csv');
+      expect(path).not.toBe(join(TEST_DIR, 'patients.csv'));
     });
   });
 
@@ -48,9 +61,9 @@ describe('patients', () => {
     });
 
     it('should parse CSV with headers correctly', async () => {
-      const csv = `case_number,first_name,last_name,dob,created_at,updated_at
-C001,John,Doe,1990-05-15,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z
-C002,Jane,Smith,1985-03-22,2026-01-16T14:20:00Z,2026-01-20T09:15:00Z`;
+      const csv = `case_number,first_name,last_name,dob,surgery_date,primary_procedure,surgeon,created_at,updated_at
+C001,John,Doe,1990-05-15,2026-01-10,Rhinoplasty,dr_smith,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z
+C002,Jane,Smith,1985-03-22,2026-01-12,Facelift,dr_jones,2026-01-16T14:20:00Z,2026-01-20T09:15:00Z`;
       await writeFile(TEST_CSV, csv);
 
       const patients = await loadPatients(TEST_CSV);
@@ -60,13 +73,16 @@ C002,Jane,Smith,1985-03-22,2026-01-16T14:20:00Z,2026-01-20T09:15:00Z`;
         first_name: 'John',
         last_name: 'Doe',
         dob: '1990-05-15',
+        surgery_date: '2026-01-10',
+        primary_procedure: 'Rhinoplasty',
+        surgeon: 'dr_smith',
         created_at: '2026-01-15T10:30:00Z',
         updated_at: '2026-01-15T10:30:00Z'
       });
     });
 
     it('should handle empty CSV with only headers', async () => {
-      const csv = 'case_number,first_name,last_name,dob,created_at,updated_at\n';
+      const csv = 'case_number,first_name,last_name,dob,surgery_date,primary_procedure,surgeon,created_at,updated_at\n';
       await writeFile(TEST_CSV, csv);
 
       const patients = await loadPatients(TEST_CSV);
@@ -74,12 +90,21 @@ C002,Jane,Smith,1985-03-22,2026-01-16T14:20:00Z,2026-01-20T09:15:00Z`;
     });
 
     it('should handle values with commas in quotes', async () => {
-      const csv = `case_number,first_name,last_name,dob,created_at,updated_at
-C001,"John, Jr.",Doe,1990-05-15,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z`;
+      const csv = `case_number,first_name,last_name,dob,surgery_date,primary_procedure,surgeon,created_at,updated_at
+C001,"John, Jr.",Doe,1990-05-15,2026-01-10,Rhinoplasty,dr_smith,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z`;
       await writeFile(TEST_CSV, csv);
 
       const patients = await loadPatients(TEST_CSV);
       expect(patients[0].first_name).toBe('John, Jr.');
+    });
+
+    it('should handle escaped quotes in values', async () => {
+      const csv = `case_number,first_name,last_name,dob,surgery_date,primary_procedure,surgeon,created_at,updated_at
+C001,"John ""JJ""",Doe,1990-05-15,2026-01-10,Rhinoplasty,dr_smith,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z`;
+      await writeFile(TEST_CSV, csv);
+
+      const patients = await loadPatients(TEST_CSV);
+      expect(patients[0].first_name).toBe('John "JJ"');
     });
   });
 
@@ -90,6 +115,9 @@ C001,"John, Jr.",Doe,1990-05-15,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z`;
         first_name: 'John',
         last_name: 'Doe',
         dob: '1990-05-15',
+        surgery_date: '2026-01-10',
+        primary_procedure: 'Rhinoplasty',
+        surgeon: 'dr_smith',
         created_at: '2026-01-15T10:30:00Z',
         updated_at: '2026-01-15T10:30:00Z'
       }];
@@ -97,7 +125,7 @@ C001,"John, Jr.",Doe,1990-05-15,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z`;
       await savePatients(patients, TEST_CSV);
 
       const content = await readFile(TEST_CSV, 'utf-8');
-      expect(content).toContain('case_number,first_name,last_name,dob,created_at,updated_at');
+      expect(content).toContain('case_number,first_name,last_name,dob,surgery_date,primary_procedure,surgeon,created_at,updated_at');
       expect(content).toContain('C001,John,Doe,1990-05-15');
     });
 
@@ -107,6 +135,9 @@ C001,"John, Jr.",Doe,1990-05-15,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z`;
         first_name: 'John, Jr.',
         last_name: 'Doe',
         dob: '1990-05-15',
+        surgery_date: '2026-01-10',
+        primary_procedure: 'Rhinoplasty',
+        surgeon: 'dr_smith',
         created_at: '2026-01-15T10:30:00Z',
         updated_at: '2026-01-15T10:30:00Z'
       }];
@@ -130,9 +161,9 @@ C001,"John, Jr.",Doe,1990-05-15,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z`;
 
   describe('findPatientByCase', () => {
     beforeEach(async () => {
-      const csv = `case_number,first_name,last_name,dob,created_at,updated_at
-C001,John,Doe,1990-05-15,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z
-C002,Jane,Smith,1985-03-22,2026-01-16T14:20:00Z,2026-01-20T09:15:00Z`;
+      const csv = `case_number,first_name,last_name,dob,surgery_date,primary_procedure,surgeon,created_at,updated_at
+C001,John,Doe,1990-05-15,2026-01-10,Rhinoplasty,dr_smith,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z
+C002,Jane,Smith,1985-03-22,2026-01-12,Facelift,dr_jones,2026-01-16T14:20:00Z,2026-01-20T09:15:00Z`;
       await writeFile(TEST_CSV, csv);
     });
 
@@ -155,10 +186,10 @@ C002,Jane,Smith,1985-03-22,2026-01-16T14:20:00Z,2026-01-20T09:15:00Z`;
 
   describe('searchPatients', () => {
     beforeEach(async () => {
-      const csv = `case_number,first_name,last_name,dob,created_at,updated_at
-C001,John,Doe,1990-05-15,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z
-C002,Jane,Smith,1985-03-22,2026-01-16T14:20:00Z,2026-01-20T09:15:00Z
-C003,Johnny,Appleseed,1975-07-04,2026-01-17T08:00:00Z,2026-01-17T08:00:00Z`;
+      const csv = `case_number,first_name,last_name,dob,surgery_date,primary_procedure,surgeon,created_at,updated_at
+C001,John,Doe,1990-05-15,2026-01-10,Rhinoplasty,dr_smith,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z
+C002,Jane,Smith,1985-03-22,2026-01-12,Facelift,dr_jones,2026-01-16T14:20:00Z,2026-01-20T09:15:00Z
+C003,Johnny,Appleseed,1975-07-04,2026-01-14,Rhinoplasty,dr_smith,2026-01-17T08:00:00Z,2026-01-17T08:00:00Z`;
       await writeFile(TEST_CSV, csv);
     });
 
@@ -195,7 +226,10 @@ C003,Johnny,Appleseed,1975-07-04,2026-01-17T08:00:00Z,2026-01-17T08:00:00Z`;
         case_number: 'C001',
         first_name: 'John',
         last_name: 'Doe',
-        dob: '1990-05-15'
+        dob: '1990-05-15',
+        surgery_date: '2026-01-10',
+        primary_procedure: 'Rhinoplasty',
+        surgeon: 'dr_smith'
       }, TEST_CSV);
 
       expect(newPatient.case_number).toBe('C001');
@@ -207,15 +241,18 @@ C003,Johnny,Appleseed,1975-07-04,2026-01-17T08:00:00Z,2026-01-17T08:00:00Z`;
     });
 
     it('should add new patient to existing CSV', async () => {
-      const csv = `case_number,first_name,last_name,dob,created_at,updated_at
-C001,John,Doe,1990-05-15,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z`;
+      const csv = `case_number,first_name,last_name,dob,surgery_date,primary_procedure,surgeon,created_at,updated_at
+C001,John,Doe,1990-05-15,2026-01-10,Rhinoplasty,dr_smith,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z`;
       await writeFile(TEST_CSV, csv);
 
       await createPatient({
         case_number: 'C002',
         first_name: 'Jane',
         last_name: 'Smith',
-        dob: '1985-03-22'
+        dob: '1985-03-22',
+        surgery_date: '2026-01-12',
+        primary_procedure: 'Facelift',
+        surgeon: 'dr_jones'
       }, TEST_CSV);
 
       const patients = await loadPatients(TEST_CSV);
@@ -223,23 +260,26 @@ C001,John,Doe,1990-05-15,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z`;
     });
 
     it('should throw error for duplicate case number', async () => {
-      const csv = `case_number,first_name,last_name,dob,created_at,updated_at
-C001,John,Doe,1990-05-15,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z`;
+      const csv = `case_number,first_name,last_name,dob,surgery_date,primary_procedure,surgeon,created_at,updated_at
+C001,John,Doe,1990-05-15,2026-01-10,Rhinoplasty,dr_smith,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z`;
       await writeFile(TEST_CSV, csv);
 
       await expect(createPatient({
         case_number: 'C001',
         first_name: 'Another',
         last_name: 'Person',
-        dob: '1980-01-01'
+        dob: '1980-01-01',
+        surgery_date: '2026-01-15',
+        primary_procedure: 'Rhinoplasty',
+        surgeon: 'dr_smith'
       }, TEST_CSV)).rejects.toThrow('already exists');
     });
   });
 
   describe('updatePatient', () => {
     beforeEach(async () => {
-      const csv = `case_number,first_name,last_name,dob,created_at,updated_at
-C001,John,Doe,1990-05-15,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z`;
+      const csv = `case_number,first_name,last_name,dob,surgery_date,primary_procedure,surgeon,created_at,updated_at
+C001,John,Doe,1990-05-15,2026-01-10,Rhinoplasty,dr_smith,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z`;
       await writeFile(TEST_CSV, csv);
     });
 
@@ -285,9 +325,9 @@ C001,John,Doe,1990-05-15,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z`;
 
   describe('deletePatient', () => {
     beforeEach(async () => {
-      const csv = `case_number,first_name,last_name,dob,created_at,updated_at
-C001,John,Doe,1990-05-15,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z
-C002,Jane,Smith,1985-03-22,2026-01-16T14:20:00Z,2026-01-20T09:15:00Z`;
+      const csv = `case_number,first_name,last_name,dob,surgery_date,primary_procedure,surgeon,created_at,updated_at
+C001,John,Doe,1990-05-15,2026-01-10,Rhinoplasty,dr_smith,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z
+C002,Jane,Smith,1985-03-22,2026-01-12,Facelift,dr_jones,2026-01-16T14:20:00Z,2026-01-20T09:15:00Z`;
       await writeFile(TEST_CSV, csv);
     });
 

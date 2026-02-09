@@ -6,7 +6,7 @@ import AppContainer from '../components/AppContainer.svelte';
 <Layout title="ImageStore">
 	<div class="app">
 		<header class="header">
-			<h1 class="logo">ImageStore</h1>
+			<h1 class="logo"><img src="/favicon.svg" alt="" class="logo-icon" />ImageStore</h1>
 		</header>
 
 		<main class="main">
@@ -23,16 +23,24 @@ import AppContainer from '../components/AppContainer.svelte';
 	}
 
 	.header {
-		padding: 0.75rem 1.5rem;
+		padding: 0.25rem 0.5rem;
 		background: #fff;
 		border-bottom: 1px solid #ddd;
 	}
 
 	.logo {
-		font-size: 1.25rem;
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 1.5rem;
 		font-weight: 600;
 		margin: 0;
 		color: #2563eb;
+	}
+
+	.logo-icon {
+		width: 2rem;
+		height: 2rem;
 	}
 
 	.main {
