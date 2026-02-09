@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
-"""Generate test images with hollow shapes."""
+"""Generate test images for ImageStore development.
 
+Creates two folders inside ~/Documents/ImageStore/unsorted/:
+  test-img/          — white background, black shapes (normal)
+  test-inverse-img/  — black background, white shapes (inverse)
+
+Requires: pip install Pillow
+"""
+
+import os
+from pathlib import Path
 from PIL import Image, ImageDraw
 
 WIDTH, HEIGHT = 400, 400
 STROKE = 8
+
+UNSORTED_DIR = Path.home() / "Documents" / "ImageStore" / "unsorted"
 
 
 def draw_hollow_circle(draw, fg):
@@ -56,23 +67,24 @@ SHAPES = [
 
 
 def generate_images():
+    normal_dir = str(UNSORTED_DIR / "test-img")
+    inverse_dir = str(UNSORTED_DIR / "test-inverse-img")
+    os.makedirs(normal_dir, exist_ok=True)
+    os.makedirs(inverse_dir, exist_ok=True)
+
     for name, draw_fn in SHAPES:
-        # White background, black foreground
-        img_light = Image.new("RGB", (WIDTH, HEIGHT), "white")
-        draw_light = ImageDraw.Draw(img_light)
-        draw_fn(draw_light, "black")
-        img_light.save(f"{name}_light.png")
+        # Normal: white background, black shape
+        img = Image.new("RGB", (WIDTH, HEIGHT), "white")
+        draw_fn(ImageDraw.Draw(img), "black")
+        img.save(os.path.join(normal_dir, f"{name}.png"))
 
-        # Black background, white foreground
-        img_dark = Image.new("RGB", (WIDTH, HEIGHT), "black")
-        draw_dark = ImageDraw.Draw(img_dark)
-        draw_fn(draw_dark, "white")
-        img_dark.save(f"{name}_dark.png")
+        # Inverse: black background, white shape
+        img = Image.new("RGB", (WIDTH, HEIGHT), "black")
+        draw_fn(ImageDraw.Draw(img), "white")
+        img.save(os.path.join(inverse_dir, f"{name}.png"))
 
-    print("Generated 8 images:")
-    for name, _ in SHAPES:
-        print(f"  {name}_light.png (white bg, black shape)")
-        print(f"  {name}_dark.png (black bg, white shape)")
+    print(f"Created {len(SHAPES)} images in {normal_dir}")
+    print(f"Created {len(SHAPES)} images in {inverse_dir}")
 
 
 if __name__ == "__main__":

@@ -21,6 +21,4 @@ Thumbs.db
 .vscode
 *.swp
 
-# Test images (temporary)
-client/public/test_images*
 client/release

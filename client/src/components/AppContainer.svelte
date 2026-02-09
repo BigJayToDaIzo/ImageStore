@@ -40,14 +40,14 @@
 		</button>
 	</nav>
 
-	<div class="tab-content" class:tab-sort={activeTab === 'sort'} class:tab-patients={activeTab === 'patients'} class:tab-settings={activeTab === 'settings'}>
-		{#if activeTab === 'sort'}
-			<ImageSorter />
-		{:else if activeTab === 'patients'}
-			<PatientsTable />
-		{:else if activeTab === 'settings'}
-			<SettingsPanel />
-		{/if}
+	<div class="tab-content tab-sort" class:hidden={activeTab !== 'sort'}>
+		<ImageSorter />
+	</div>
+	<div class="tab-content tab-patients" class:hidden={activeTab !== 'patients'}>
+		<PatientsTable />
+	</div>
+	<div class="tab-content tab-settings" class:hidden={activeTab !== 'settings'}>
+		<SettingsPanel />
 	</div>
 </div>
 
@@ -128,6 +128,10 @@
 		flex: 1;
 		display: flex;
 		overflow: visible;
+	}
+
+	.tab-content.hidden {
+		display: none;
 	}
 
 	/* Tab-specific content background colors */

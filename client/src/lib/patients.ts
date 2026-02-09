@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, access, constants } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, access, constants, copyFile, readdir, unlink } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { loadSettings, getDataPath as getSettingsDataPath } from './settings';
 
@@ -102,8 +102,37 @@ export async function loadPatients(csvPath?: string): Promise<Patient[]> {
   });
 }
 
+async function backupPatients(csvPath: string): Promise<void> {
+  try {
+    await access(csvPath, constants.F_OK);
+  } catch {
+    return; // Nothing to back up
+  }
+
+  try {
+    const backupDir = join(dirname(csvPath), 'backups');
+    await mkdir(backupDir, { recursive: true });
+
+    const today = new Date().toISOString().slice(0, 10);
+    await copyFile(csvPath, join(backupDir, `patients.${today}.csv`));
+
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const files = await readdir(backupDir);
+    for (const file of files) {
+      const match = file.match(/^patients\.(\d{4}-\d{2}-\d{2})\.csv$/);
+      if (match && new Date(match[1]).getTime() < cutoff) {
+        await unlink(join(backupDir, file));
+      }
+    }
+  } catch (err) {
+    console.warn('Patient backup failed:', err);
+  }
+}
+
 export async function savePatients(patients: Patient[], csvPath?: string): Promise<void> {
   const path = csvPath ?? await getDataPath();
+
+  await backupPatients(path);
 
   await mkdir(dirname(path), { recursive: true });
 
