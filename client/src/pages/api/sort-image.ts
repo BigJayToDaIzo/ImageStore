@@ -63,6 +63,55 @@ export const POST: APIRoute = async ({ request }) => {
       }
     }
 
+    // Validate fields that become filesystem paths contain no unsafe characters
+    const UNSAFE_PATH = /[\/\\:*?"<>|]|\.\./;
+    const pathFields = { caseNumber: metadata.caseNumber, procedureType: metadata.procedureType };
+    for (const [field, value] of Object.entries(pathFields)) {
+      if (UNSAFE_PATH.test(value)) {
+        return new Response(JSON.stringify({ error: `Invalid characters in ${field}` }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    // Validate enum fields
+    if (!['no_consent', 'consent'].includes(metadata.consentStatus)) {
+      return new Response(JSON.stringify({ error: 'Invalid consent status' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (metadata.consentType && !['hipaa', 'social_media'].includes(metadata.consentType)) {
+      return new Response(JSON.stringify({ error: 'Invalid consent type' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (!['pre_op', '1day_post_op', '3mo_post_op', '6mo_post_op', '9plus_mo_post_op'].includes(metadata.imageType)) {
+      return new Response(JSON.stringify({ error: 'Invalid image type' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (!['front', 'back', 'left', 'right'].includes(metadata.angle)) {
+      return new Response(JSON.stringify({ error: 'Invalid angle' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Validate surgery date format (YYYY-MM-DD)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(metadata.surgeryDate) || isNaN(Date.parse(metadata.surgeryDate))) {
+      return new Response(JSON.stringify({ error: 'Invalid surgery date (expected YYYY-MM-DD)' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     // Consent type required when consent is given
     if (metadata.consentStatus === 'consent' && !metadata.consentType) {
       return new Response(JSON.stringify({ error: 'Consent type required when consent is given' }), {

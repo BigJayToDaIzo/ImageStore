@@ -184,6 +184,18 @@ Workflow (`.github/workflows/release.yml`) builds all 3 platforms on native runn
 - All file system operations happen server-side via `/api/*` endpoints
 - Clean separation enables future migration to Tauri if bundle size matters
 
+## Refactor TODO (2026-02-09)
+- [x] Add input validation to `/api/sort-image` — filesystem-safe chars, enum checks, date format
+- [ ] Add atomic writes for CSV operations — write-to-temp-then-rename in patients/procedures/surgeons/settings
+- [ ] Refactor CaseNumberInput.svelte (~1327 lines) into smaller sub-components
+- [ ] Refactor SettingsPanel.svelte (~1520 lines) into smaller sub-components
+- [ ] Add API endpoint tests (REST layer has zero coverage)
+- [ ] Improve error responses with distinct HTTP status codes across all endpoints
+- [ ] Add validation to CSV import endpoint (column validation, malformed CSV handling)
+- [ ] Clarify sort-image API path parameters (serverPath vs sourcePath naming)
+- [ ] Add audit logging for HIPAA compliance (file access, moves, patient record changes)
+- [ ] Clean up abandoned `server/` directory (planned Gleam backend never implemented)
+
 ## Next Session
 - [ ] Filter for malformed case numbers once schema is defined (schema TBD)
 - [ ] Test Electron build on Mac (`bun run dist:mac-intel`)

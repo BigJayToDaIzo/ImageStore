@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "description": "Medical image sorting and patient management",
   "author": "JM <me@josephmyers.dev>",
-  "main": "electron/main.js",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
