@@ -12,9 +12,11 @@ const URL = `http://localhost:${PORT}`;
 function startServer() {
   const distPath = path.join(__dirname, '..', 'dist', 'server', 'entry.mjs');
 
-  serverProcess = spawn('node', [distPath], {
+  // Use Electron's bundled Node.js instead of system node —
+  // macOS GUI apps don't inherit the shell PATH
+  serverProcess = spawn(process.execPath, [distPath], {
     cwd: path.join(__dirname, '..'),
-    env: { ...process.env, HOST: 'localhost', PORT: String(PORT) },
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', HOST: 'localhost', PORT: String(PORT) },
     stdio: 'inherit'
   });
 
