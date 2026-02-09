@@ -17,9 +17,11 @@ jobs:
         include:
           - os: macos-latest
             args: --target aarch64-apple-darwin
+            rust-targets: aarch64-apple-darwin
             artifact: ImageStore-mac-arm
-          - os: macos-13
+          - os: macos-latest
             args: --target x86_64-apple-darwin
+            rust-targets: x86_64-apple-darwin
             artifact: ImageStore-mac-intel
           - os: windows-latest
             args:
@@ -41,7 +43,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin' || '' }}
+          targets: ${{ matrix.rust-targets || '' }}
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
