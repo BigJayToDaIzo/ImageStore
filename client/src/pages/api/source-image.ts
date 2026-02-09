@@ -18,8 +18,9 @@ const MIME_TYPES: Record<string, string> = {
 
 export const GET: APIRoute = async ({ url }) => {
   try {
+    const customRoot = url.searchParams.get('sourceRoot');
     const settings = await loadSettings();
-    const sourceRoot = settings.sourceRoot;
+    const sourceRoot = customRoot || settings.sourceRoot;
 
     const imagePath = url.searchParams.get('path');
     if (!imagePath) {

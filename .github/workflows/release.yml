@@ -16,13 +16,16 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            script: dist:mac
-            artifact: ImageStore-mac
+            args: --target aarch64-apple-darwin
+            artifact: ImageStore-mac-arm
+          - os: macos-13
+            args: --target x86_64-apple-darwin
+            artifact: ImageStore-mac-intel
           - os: windows-latest
-            script: dist:win
+            args:
             artifact: ImageStore-win
-          - os: ubuntu-latest
-            script: dist:linux
+          - os: ubuntu-22.04
+            args:
             artifact: ImageStore-linux
 
     runs-on: ${{ matrix.os }}
@@ -36,20 +39,35 @@ jobs:
         with:
           node-version: '22'
 
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin' || '' }}
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
       - name: Install dependencies
         run: bun install
 
-      - name: Build and package
-        run: bun run ${{ matrix.script }}
+      - name: Build and bundle
+        env:
+          NO_STRIP: ${{ runner.os == 'Linux' && 'true' || '' }}
+        run: bun run tauri:build -- ${{ matrix.args }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           path: |
-            client/release/*.dmg
-            client/release/*.exe
-            client/release/*.AppImage
+            client/src-tauri/target/*/release/bundle/dmg/*.dmg
+            client/src-tauri/target/release/bundle/dmg/*.dmg
+            client/src-tauri/target/release/bundle/nsis/*.exe
+            client/src-tauri/target/release/bundle/appimage/*.AppImage
+            client/src-tauri/target/release/bundle/deb/*.deb
+            client/src-tauri/target/release/bundle/rpm/*.rpm
 
   release:
     needs: build

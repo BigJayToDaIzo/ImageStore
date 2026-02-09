@@ -7,10 +7,12 @@ export const prerender = false;
 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.tif'];
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ request }) => {
   try {
+    const url = new URL(request.url);
+    const customPath = url.searchParams.get('path');
     const settings = await loadSettings();
-    const sourceRoot = settings.sourceRoot;
+    const sourceRoot = customPath || settings.sourceRoot;
 
     if (!sourceRoot) {
       return new Response(JSON.stringify({ images: [], sourceRoot: '' }), {

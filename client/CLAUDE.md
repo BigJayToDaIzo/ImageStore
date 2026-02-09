@@ -179,10 +179,14 @@ git tag v0.1.0 && git push --tags  # Triggers GitHub Actions build + release
 Workflow (`.github/workflows/release.yml`) builds all 3 platforms on native runners and publishes to GitHub Releases. Can also be triggered manually from the Actions tab.
 
 ### Architecture
-- Electron main process (`electron/main.js`) spawns the Astro Node server
+- Electron main process (`electron/main.cjs`) spawns the Astro Node server
 - BrowserWindow loads `http://localhost:4321`
 - All file system operations happen server-side via `/api/*` endpoints
-- Clean separation enables future migration to Tauri if bundle size matters
+
+### Tauri Migration Plan
+**Phase 1 (next):** Replace Electron with Tauri, run the Astro Node server as a sidecar process. Webview loads localhost:4321 — same as today. Gets us native dialogs (file picker default path), smaller shell, and Tauri APIs without rewriting backend code.
+
+**Phase 2 (later):** Rewrite `/api/*` endpoints and data layer (patients.ts, procedures.ts, surgeons.ts, settings.ts) as Tauri Rust commands. Build Astro as static SSG. Eliminates Node dependency entirely.
 
 ## Refactor TODO (2026-02-09)
 - [x] Add input validation to `/api/sort-image` — filesystem-safe chars, enum checks, date format

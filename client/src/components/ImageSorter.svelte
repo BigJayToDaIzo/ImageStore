@@ -71,7 +71,11 @@
 	function handleModalClearAndSwitch() {
 		caseNumberInputRef?.resetForm();
 		if (pendingFolderFiles) {
-			applyFolderChange(pendingFolderFiles);
+			if (typeof pendingFolderFiles === 'string') {
+				applyFolderChange(pendingFolderFiles);
+			} else {
+				applyFolderChangeLegacy(pendingFolderFiles);
+			}
 			pendingFolderFiles = null;
 		} else if (pendingIndex >= 0) {
 			selectedIndex = pendingIndex;
@@ -82,7 +86,11 @@
 
 	function handleModalKeepAndSwitch() {
 		if (pendingFolderFiles) {
-			applyFolderChange(pendingFolderFiles);
+			if (typeof pendingFolderFiles === 'string') {
+				applyFolderChange(pendingFolderFiles);
+			} else {
+				applyFolderChangeLegacy(pendingFolderFiles);
+			}
 			pendingFolderFiles = null;
 		} else if (pendingIndex >= 0) {
 			selectedIndex = pendingIndex;
@@ -116,11 +124,36 @@
 		}
 	}
 
-	function openFolderPicker() {
-		fileInput?.click();
+	async function openFolderPicker() {
+		let selectedPath = null;
+
+		if (window.__TAURI_INTERNALS__) {
+			try {
+				const { open } = await import('@tauri-apps/plugin-dialog');
+				const defaultPath = folderPath || undefined;
+				selectedPath = await open({ directory: true, multiple: false, defaultPath });
+			} catch {
+				fileInput?.click();
+				return;
+			}
+		} else {
+			// Not in Tauri (e.g. browser dev) — fall back to HTML file input
+			fileInput?.click();
+			return;
+		}
+
+		if (!selectedPath) return; // User cancelled
+
+		if (formIsDirty) {
+			pendingFolderFiles = selectedPath;
+			showSwitchModal = true;
+		} else {
+			await applyFolderChange(selectedPath);
+		}
 	}
 
 	function handleFolderSelect(event) {
+		// Fallback for non-Tauri: HTML file input with webkitdirectory
 		const files = Array.from(event.target.files || []);
 		const imageFiles = files.filter(file =>
 			file.type.startsWith('image/')
@@ -128,28 +161,47 @@
 
 		if (imageFiles.length > 0) {
 			if (formIsDirty) {
-				// Store pending folder change and show modal
 				pendingFolderFiles = imageFiles;
 				showSwitchModal = true;
 			} else {
-				applyFolderChange(imageFiles);
+				applyFolderChangeLegacy(imageFiles);
 			}
 		}
 	}
 
-	function applyFolderChange(imageFiles) {
-		// Get folder path from first file's webkitRelativePath
+	async function applyFolderChange(dirPath) {
+		// Server-based: ask the API to list images in the selected directory
+		const res = await fetch(`/api/source-images?path=${encodeURIComponent(dirPath)}`);
+		if (!res.ok) return;
+
+		const data = await res.json();
+		if (!data.images || data.images.length === 0) return;
+
+		folderPath = dirPath;
+		onFolderChange?.(folderPath);
+
+		images = data.images.map(img => ({
+			src: `/api/source-image?path=${encodeURIComponent(img.path)}&sourceRoot=${encodeURIComponent(dirPath)}`,
+			name: img.name,
+			path: img.path,
+			file: null
+		}));
+		selectedIndex = 0;
+		hoveredIndex = -1;
+		isServerLoaded = true;
+	}
+
+	function applyFolderChangeLegacy(imageFiles) {
+		// Fallback for non-Tauri: use blob URLs from File objects
 		const firstPath = imageFiles[0].webkitRelativePath;
 		folderPath = firstPath.split('/')[0];
 
-		// Notify parent of folder change
 		onFolderChange?.(folderPath);
 
-		// Convert files to image objects with blob URLs
 		images = imageFiles.map(file => ({
 			src: URL.createObjectURL(file),
 			name: file.name,
-			path: file.webkitRelativePath, // Store full relative path
+			path: file.webkitRelativePath,
 			file: file
 		}));
 		selectedIndex = 0;
