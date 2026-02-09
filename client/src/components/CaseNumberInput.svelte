@@ -532,9 +532,8 @@
 				}
 			} else if (selectedPath) {
 				// Server-loaded image - send path instead of file
-				formData.append('serverPath', selectedPath);
-				formData.append('originalFilename', selectedFilename);
 				formData.append('sourcePath', selectedPath);
+				formData.append('originalFilename', selectedFilename);
 			}
 
 			formData.append('caseNumber', caseNumber);

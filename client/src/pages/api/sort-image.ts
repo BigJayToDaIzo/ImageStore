@@ -120,11 +120,11 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // Get the file - either from upload or server path
+    // Get the file - either uploaded from folder picker or referenced by path on disk
     const file = formData.get('file') as File | null;
-    const serverPath = formData.get('serverPath') as string | null;
+    const sourcePath = formData.get('sourcePath') as string | null;
 
-    if (!file && !serverPath) {
+    if (!file && !sourcePath) {
       return new Response(JSON.stringify({ error: 'No file provided' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
@@ -138,27 +138,25 @@ export const POST: APIRoute = async ({ request }) => {
     // Create directory structure
     await mkdir(dir, { recursive: true });
 
+    // Resolve full source path (relative to sourceRoot)
+    const fullSourcePath = sourcePath ? join(settings.sourceRoot, sourcePath) : null;
+
     // Write file - either from upload or copy from source
     if (file) {
       const buffer = Buffer.from(await file.arrayBuffer());
       await writeFile(destPath, buffer);
-    } else if (serverPath) {
-      // Server path - copy from source root
-      const sourcePath = join(settings.sourceRoot, serverPath);
-      await copyFile(sourcePath, destPath);
+    } else if (fullSourcePath) {
+      await copyFile(fullSourcePath, destPath);
     }
 
     // Verify write succeeded
     await access(destPath, constants.F_OK);
 
-    // Delete source file if path provided
-    const sourcePath = formData.get('sourcePath') as string | null;
-    if (sourcePath && settings.sourceRoot) {
-      const fullSourcePath = join(settings.sourceRoot, sourcePath);
+    // Delete source file after successful copy
+    if (fullSourcePath) {
       try {
         await unlink(fullSourcePath);
       } catch (deleteError) {
-        // Source deletion is non-fatal - file may be from a different location
         console.warn('Could not delete source file:', fullSourcePath, deleteError);
       }
     }

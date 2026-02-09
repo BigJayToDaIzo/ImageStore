@@ -50,6 +50,13 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
+    if (!path.toLowerCase().endsWith('.csv')) {
+      return new Response(JSON.stringify({ error: 'File must be a .csv file' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     if (!type || !['surgeons', 'procedures'].includes(type)) {
       return new Response(JSON.stringify({ error: 'Type must be "surgeons" or "procedures"' }), {
         status: 400,

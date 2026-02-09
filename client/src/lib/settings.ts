@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 
@@ -102,7 +102,8 @@ export async function saveSettings(settings: Partial<Settings>): Promise<Setting
   // Ensure directory exists
   await mkdir(dirname(settingsPath), { recursive: true });
 
-  await writeFile(settingsPath, JSON.stringify(updated, null, 2), 'utf-8');
+  await writeFile(settingsPath + '.tmp', JSON.stringify(updated, null, 2), 'utf-8');
+  await rename(settingsPath + '.tmp', settingsPath);
 
   return updated;
 }
@@ -122,7 +123,8 @@ export async function resetSettings(): Promise<Settings> {
   await mkdir(dirname(settingsPath), { recursive: true });
 
   // Write factory defaults
-  await writeFile(settingsPath, JSON.stringify(DEFAULT_SETTINGS, null, 2), 'utf-8');
+  await writeFile(settingsPath + '.tmp', JSON.stringify(DEFAULT_SETTINGS, null, 2), 'utf-8');
+  await rename(settingsPath + '.tmp', settingsPath);
 
   return { ...DEFAULT_SETTINGS };
 }

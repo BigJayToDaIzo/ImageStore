@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, access, constants } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, access, constants, rename } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { loadSettings, getDataDir } from './settings';
 
@@ -98,7 +98,8 @@ export async function saveSurgeons(surgeons: Surgeon[]): Promise<void> {
   const rows = surgeons.map(surgeonToCSVLine);
   const content = [header, ...rows].join('\n') + '\n';
 
-  await writeFile(path, content, 'utf-8');
+  await writeFile(path + '.tmp', content, 'utf-8');
+  await rename(path + '.tmp', path);
 }
 
 export async function createSurgeon(id: string, name: string): Promise<Surgeon> {

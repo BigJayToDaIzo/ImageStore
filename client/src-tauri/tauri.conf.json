@@ -37,6 +37,6 @@
     "resources": {
       "../dist/": "dist/"
     },
-    "externalBin": ["binaries/node"]
+    "externalBin": ["node"]
   }
 }

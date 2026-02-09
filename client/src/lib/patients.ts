@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, access, constants, copyFile, readdir, unlink } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, access, constants, copyFile, readdir, unlink, rename } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { loadSettings, getDataPath as getSettingsDataPath } from './settings';
 
@@ -140,7 +140,8 @@ export async function savePatients(patients: Patient[], csvPath?: string): Promi
   const rows = patients.map(patientToCSVLine);
   const content = [header, ...rows].join('\n') + '\n';
 
-  await writeFile(path, content, 'utf-8');
+  await writeFile(path + '.tmp', content, 'utf-8');
+  await rename(path + '.tmp', path);
 }
 
 export async function findPatientByCase(caseNumber: string, csvPath?: string): Promise<Patient | null> {

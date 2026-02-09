@@ -2,7 +2,7 @@
 
 /**
  * Downloads the Node.js binary for the current (or specified) platform
- * and places it in client/src-tauri/binaries/ with the Tauri target-triple name.
+ * and places it in client/src-tauri/ with the Tauri target-triple name.
  *
  * Usage:
  *   node scripts/download-node.mjs                    # auto-detect platform
@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
-const BINARIES_DIR = join(PROJECT_ROOT, "client", "src-tauri", "binaries");
+const BINARIES_DIR = join(PROJECT_ROOT, "client", "src-tauri");
 const NODE_VERSION = "22.15.0";
 
 const PLATFORM_MAP = {

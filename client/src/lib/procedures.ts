@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, access, constants } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, access, constants, rename } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { loadSettings, getDataDir } from './settings';
 
@@ -107,7 +107,8 @@ export async function saveProcedures(procedures: Procedure[]): Promise<void> {
   const rows = procedures.map(procedureToCSVLine);
   const content = [header, ...rows].join('\n') + '\n';
 
-  await writeFile(path, content, 'utf-8');
+  await writeFile(path + '.tmp', content, 'utf-8');
+  await rename(path + '.tmp', path);
 }
 
 export async function createProcedure(id: string, name: string, favorite: boolean = false): Promise<Procedure> {

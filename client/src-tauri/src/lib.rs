@@ -24,7 +24,7 @@ fn start_server(app: &tauri::AppHandle) -> Result<CommandChild, Box<dyn std::err
 
     let (mut rx, child) = app
         .shell()
-        .sidecar("binaries/node")?
+        .sidecar("node")?
         .arg(server_entry.to_string_lossy().to_string())
         .env("HOST", "localhost")
         .env("PORT", "4321")

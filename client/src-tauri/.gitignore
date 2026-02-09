@@ -3,4 +3,4 @@
 /target/
 /gen/schemas
 # Downloaded Node binaries for sidecar
-/binaries/
+/node-*
