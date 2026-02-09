@@ -43,9 +43,7 @@
       "electron/**/*",
       "node_modules/**/*"
     ],
-    "asarUnpack": [
-      "dist/server/**/*"
-    ],
+    "asar": false,
     "mac": {
       "category": "public.app-category.medical",
       "target": [

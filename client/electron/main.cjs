@@ -10,14 +10,10 @@ const URL = `http://localhost:${PORT}`;
 
 // Start the Astro server
 function startServer() {
-  // In packaged builds, asarUnpack puts dist/server/ on the real filesystem
-  // at app.asar.unpacked instead of app.asar
-  const appRoot = path.join(__dirname, '..');
-  const serverRoot = appRoot.replace('app.asar', 'app.asar.unpacked');
-  const distPath = path.join(serverRoot, 'dist', 'server', 'entry.mjs');
+  const distPath = path.join(__dirname, '..', 'dist', 'server', 'entry.mjs');
 
   serverProcess = spawn('node', [distPath], {
-    cwd: serverRoot,
+    cwd: path.join(__dirname, '..'),
     env: { ...process.env, HOST: 'localhost', PORT: String(PORT) },
     stdio: 'inherit'
   });
