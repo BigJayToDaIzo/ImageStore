@@ -2,7 +2,7 @@
 
 /**
  * Downloads the Node.js binary for the current (or specified) platform
- * and places it in client/src-tauri/ with the Tauri target-triple name.
+ * and places it in client/src-tauri/resources/node (or node.exe on Windows).
  *
  * Usage:
  *   node scripts/download-node.mjs                    # auto-detect platform
@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
-const BINARIES_DIR = join(PROJECT_ROOT, "client", "src-tauri");
+const RESOURCES_DIR = join(PROJECT_ROOT, "client", "src-tauri", "resources");
 const NODE_VERSION = "22.15.0";
 
 const PLATFORM_MAP = {
@@ -61,15 +61,15 @@ async function downloadAndExtract(target) {
     : `node-v${NODE_VERSION}-${nodePlatform}-${nodeArch}.tar.gz`;
 
   const url = `https://nodejs.org/dist/v${NODE_VERSION}/${archiveName}`;
-  const outputName = `node-${target}${ext}`;
-  const outputPath = join(BINARIES_DIR, outputName);
+  const outputName = `node${ext}`;
+  const outputPath = join(RESOURCES_DIR, outputName);
 
   if (existsSync(outputPath)) {
     console.log(`Already exists: ${outputName}`);
     return;
   }
 
-  mkdirSync(BINARIES_DIR, { recursive: true });
+  mkdirSync(RESOURCES_DIR, { recursive: true });
 
   console.log(`Downloading Node.js v${NODE_VERSION} for ${target}...`);
   console.log(`  URL: ${url}`);
@@ -80,11 +80,11 @@ async function downloadAndExtract(target) {
   }
 
   const dirPrefix = `node-v${NODE_VERSION}-${nodePlatform}-${nodeArch}`;
-  const tmpPath = join(BINARIES_DIR, `_tmp_${outputName}`);
+  const tmpPath = join(RESOURCES_DIR, `_tmp_${outputName}`);
 
   if (isWindows) {
     // Download zip, extract node.exe using PowerShell
-    const zipPath = join(BINARIES_DIR, archiveName);
+    const zipPath = join(RESOURCES_DIR, archiveName);
     const zipStream = createWriteStream(zipPath);
     await pipeline(Readable.fromWeb(resp.body), zipStream);
 
@@ -97,24 +97,24 @@ async function downloadAndExtract(target) {
       );
     } else {
       // Cross-compiling for Windows on a Unix host (unlikely but handle it)
-      execSync(`unzip -o -j "${zipPath}" "${nodeExeEntry}" -d "${BINARIES_DIR}"`, { stdio: "inherit" });
-      renameSync(join(BINARIES_DIR, "node.exe"), tmpPath);
+      execSync(`unzip -o -j "${zipPath}" "${nodeExeEntry}" -d "${RESOURCES_DIR}"`, { stdio: "inherit" });
+      renameSync(join(RESOURCES_DIR, "node.exe"), tmpPath);
     }
     unlinkSync(zipPath);
   } else {
     // Download to temp file, then extract just the node binary
-    const tgzPath = join(BINARIES_DIR, archiveName);
+    const tgzPath = join(RESOURCES_DIR, archiveName);
     const tgzStream = createWriteStream(tgzPath);
     await pipeline(Readable.fromWeb(resp.body), tgzStream);
 
     // Extract just the node binary
     execSync(
-      `tar -xzf "${tgzPath}" -C "${BINARIES_DIR}" --strip-components=2 "${dirPrefix}/bin/node"`,
+      `tar -xzf "${tgzPath}" -C "${RESOURCES_DIR}" --strip-components=2 "${dirPrefix}/bin/node"`,
       { stdio: "inherit" }
     );
 
     // Move to final name
-    renameSync(join(BINARIES_DIR, "node"), tmpPath);
+    renameSync(join(RESOURCES_DIR, "node"), tmpPath);
     unlinkSync(tgzPath);
   }
 

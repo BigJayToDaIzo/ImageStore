@@ -32,6 +32,7 @@ interface CaseNumberInputProps {
 	selectedFile: () => File | null;
 	selectedFilename: () => string;
 	selectedPath: () => string;
+	sourceRoot: () => string;
 	onSorted: () => () => void;
 	onDirtyChange: (dirty: boolean) => void;
 }
@@ -505,6 +506,10 @@ export function createCaseNumberInputState(props: CaseNumberInputProps) {
 			} else if (path) {
 				formData.append('relativeSourcePath', path);
 				formData.append('originalFilename', filename);
+				const customSourceRoot = props.sourceRoot();
+				if (customSourceRoot) {
+					formData.append('sourceRoot', customSourceRoot);
+				}
 			}
 
 			formData.append('caseNumber', caseNumber);

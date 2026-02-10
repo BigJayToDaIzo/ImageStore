@@ -78,6 +78,7 @@
 			selectedFile={state.images[state.selectedIndex]?.file}
 			selectedFilename={state.images[state.selectedIndex]?.name}
 			selectedPath={state.images[state.selectedIndex]?.path}
+			sourceRoot={state.folderPath}
 			onSorted={state.handleImageSorted}
 			bind:isDirty={state.formIsDirty}
 		/>

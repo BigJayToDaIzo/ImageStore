@@ -10,6 +10,7 @@
 		selectedFile = null,
 		selectedFilename = '',
 		selectedPath = '',
+		sourceRoot = '',
 		onSorted = () => {},
 		isDirty = $bindable(false)
 	} = $props();
@@ -18,6 +19,7 @@
 		selectedFile: () => selectedFile,
 		selectedFilename: () => selectedFilename,
 		selectedPath: () => selectedPath,
+		sourceRoot: () => sourceRoot,
 		onSorted: () => onSorted,
 		onDirtyChange: (dirty) => { isDirty = dirty; },
 	});

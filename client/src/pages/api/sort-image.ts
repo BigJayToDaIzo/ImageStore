@@ -131,15 +131,22 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
+    // Resolve full source path (relative to sourceRoot or custom sourceRoot from folder picker)
+    const customSourceRoot = formData.get('sourceRoot') as string | null;
+    const sourceRoot = customSourceRoot || settings.sourceRoot;
+    const fullSourcePath = relativeSourcePath ? join(sourceRoot, relativeSourcePath) : null;
+
+    // Verify source exists before creating destination directories
+    if (fullSourcePath) {
+      await access(fullSourcePath, constants.R_OK);
+    }
+
     // Build destination path
     const { dir, filename } = buildDestinationPath(metadata, destinationRoot);
     const destPath = join(dir, filename);
 
     // Create directory structure
     await mkdir(dir, { recursive: true });
-
-    // Resolve full source path (relative to sourceRoot)
-    const fullSourcePath = relativeSourcePath ? join(settings.sourceRoot, relativeSourcePath) : null;
 
     // Write file - either from upload or copy from source
     if (file) {
