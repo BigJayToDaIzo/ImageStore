@@ -86,6 +86,24 @@ jobs:
       contents: write
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV_TAG=$(git tag --sort=-v:refname | head -2 | tail -1)
+          if [ "$PREV_TAG" = "${{ github.ref_name }}" ] || [ -z "$PREV_TAG" ]; then
+            RANGE="HEAD"
+          else
+            RANGE="${PREV_TAG}..HEAD"
+          fi
+          NOTES=$(git log "$RANGE" --pretty=format:"- %s" --no-merges | grep -v "Co-Authored-By")
+          echo "notes<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$NOTES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -96,4 +114,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/**/*
-          generate_release_notes: true
+          body: |
+            ## What's Changed
+            ${{ steps.changelog.outputs.notes }}
