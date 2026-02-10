@@ -22,10 +22,10 @@ const RESOURCES_DIR = join(PROJECT_ROOT, "client", "src-tauri", "resources");
 const NODE_VERSION = "22.15.0";
 
 const PLATFORM_MAP = {
-  "x86_64-unknown-linux-gnu": { nodePlatform: "linux", nodeArch: "x64", ext: "" },
-  "aarch64-apple-darwin": { nodePlatform: "darwin", nodeArch: "arm64", ext: "" },
-  "x86_64-apple-darwin": { nodePlatform: "darwin", nodeArch: "x64", ext: "" },
-  "x86_64-pc-windows-msvc": { nodePlatform: "win", nodeArch: "x64", ext: ".exe" },
+  "x86_64-unknown-linux-gnu": { nodePlatform: "linux", nodeArch: "x64" },
+  "aarch64-apple-darwin": { nodePlatform: "darwin", nodeArch: "arm64" },
+  "x86_64-apple-darwin": { nodePlatform: "darwin", nodeArch: "x64" },
+  "x86_64-pc-windows-msvc": { nodePlatform: "win", nodeArch: "x64" },
 };
 
 function detectTarget() {
@@ -53,7 +53,7 @@ function getTarget() {
 }
 
 async function downloadAndExtract(target) {
-  const { nodePlatform, nodeArch, ext } = PLATFORM_MAP[target];
+  const { nodePlatform, nodeArch } = PLATFORM_MAP[target];
   const isWindows = nodePlatform === "win";
 
   const archiveName = isWindows
@@ -61,7 +61,7 @@ async function downloadAndExtract(target) {
     : `node-v${NODE_VERSION}-${nodePlatform}-${nodeArch}.tar.gz`;
 
   const url = `https://nodejs.org/dist/v${NODE_VERSION}/${archiveName}`;
-  const outputName = `node${ext}`;
+  const outputName = "node";
   const outputPath = join(RESOURCES_DIR, outputName);
 
   if (existsSync(outputPath)) {

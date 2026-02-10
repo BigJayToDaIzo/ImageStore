@@ -26,4 +26,3 @@ client/release
 # Tauri
 client/src-tauri/target
 client/src-tauri/resources/node
-client/src-tauri/resources/node.exe
