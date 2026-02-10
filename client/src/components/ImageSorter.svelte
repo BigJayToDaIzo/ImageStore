@@ -119,7 +119,7 @@
 	}
 
 	.preview-area {
-		flex: 1 1 50%;
+		flex: 0 0 75%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -171,9 +171,7 @@
 	.thumbnails-area {
 		display: flex;
 		flex-direction: column;
-		flex: 0 0 auto;
-		min-height: 150px;
-		max-height: 50%;
+		flex: 0 0 25%;
 		border-top: 1px solid #fca5a5;
 		background: #fee2e2;
 	}
