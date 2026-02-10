@@ -8,7 +8,7 @@ Astro + Svelte frontend for the ImageStore application.
 ## Technology
 - **Framework:** Astro (SSR with Node adapter)
 - **Interactive Islands:** Svelte 5
-- **Desktop App:** Electron (for distribution)
+- **Desktop App:** Tauri 2
 - **Runtime:** Bun (development)
 
 ## Views
@@ -159,34 +159,30 @@ Settings subtabs use purple shades (#ede9fe inactive, #ddd6fe active).
 ```bash
 bun run dev          # Start Astro dev server at localhost:4321
 bun run build        # Build for production
-bun run electron:dev # Build + run in Electron window
+bun run tauri:dev    # Build + run in Tauri webview (dev mode)
 ```
 
 ### Building Distributables
 ```bash
-bun run dist:mac       # Mac ARM (M1/M2/M3) .dmg
-bun run dist:mac-intel # Mac Intel .dmg
-bun run dist:win       # Windows .exe installer
-bun run dist:linux     # Linux AppImage
+bun run tauri:build                    # Build for current platform
+bun run tauri:build --bundles appimage # Linux AppImage only
 ```
-
-Output goes to `release/` folder.
 
 ### CI/CD Releases
 ```bash
 git tag v0.1.0 && git push --tags  # Triggers GitHub Actions build + release
 ```
-Workflow (`.github/workflows/release.yml`) builds all 3 platforms on native runners and publishes to GitHub Releases. Can also be triggered manually from the Actions tab.
+Workflow (`.github/workflows/release.yml`) builds all 4 targets (Linux, Windows, Mac ARM, Mac Intel) and publishes to GitHub Releases. Can also be triggered manually from the Actions tab.
 
 ### Architecture
-- Electron main process (`electron/main.cjs`) spawns the Astro Node server
-- BrowserWindow loads `http://localhost:4321`
+- Tauri Rust shell (`src-tauri/src/lib.rs`) spawns bundled Node binary as a child process
+- Node runs the Astro server (`dist/server/entry.mjs`) on localhost:4321
+- Tauri webview loads `http://localhost:4321`
 - All file system operations happen server-side via `/api/*` endpoints
+- Native folder picker via `tauri-plugin-dialog` with HTML fallback
 
-### Tauri Migration Plan
-**Phase 1 (next):** Replace Electron with Tauri, run the Astro Node server as a sidecar process. Webview loads localhost:4321 — same as today. Gets us native dialogs (file picker default path), smaller shell, and Tauri APIs without rewriting backend code.
-
-**Phase 2 (later):** Rewrite `/api/*` endpoints and data layer (patients.ts, procedures.ts, surgeons.ts, settings.ts) as Tauri Rust commands. Build Astro as static SSG. Eliminates Node dependency entirely.
+### Tauri Phase 2 (future)
+Rewrite `/api/*` endpoints and data layer (patients.ts, procedures.ts, surgeons.ts, settings.ts) as Tauri Rust commands. Build Astro as static SSG. Eliminates Node dependency entirely.
 
 ## Refactor TODO (2026-02-09)
 - [x] Add input validation to `/api/sort-image` — filesystem-safe chars, enum checks, date format
@@ -202,7 +198,7 @@ Workflow (`.github/workflows/release.yml`) builds all 3 platforms on native runn
 
 ## Next Session
 - [ ] Filter for malformed case numbers once schema is defined (schema TBD)
-- [ ] Test Electron build on Mac (`bun run dist:mac-intel`)
+- [x] ~~Test Electron build on Mac~~ — Replaced by Tauri, all platforms building in CI
 
 ## Post-MVP
 - [ ] Procedure favorites filter: show favorites first, "Other..." reveals full list with type-to-filter
@@ -220,7 +216,7 @@ Workflow (`.github/workflows/release.yml`) builds all 3 platforms on native runn
   - macOS CI runners use the real `dmg-license` (optional dep of `dmg-builder`)
 - [x] Custom DSLR app icon with medical cross badge
   - SVG source at `build/icon.svg`, PNG at `build/icon.png`
-  - Wired into electron-builder, favicon, and app header
+  - Wired into Tauri icons, favicon, and app header
 - [x] Added `description` and `author` fields to package.json
 - [x] App header: icon + "ImageStore" branding in top bar
 

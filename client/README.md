@@ -12,19 +12,17 @@ bun run dev          # Start dev server at localhost:4321
 ## Building Desktop App
 
 ```bash
-bun run dist:mac       # Mac ARM (M1/M2/M3)
-bun run dist:mac-intel # Mac Intel
-bun run dist:win       # Windows
-bun run dist:linux     # Linux
+bun run tauri:build                    # Build for current platform
+bun run tauri:build --bundles appimage # Linux AppImage
 ```
 
-Output is in `release/` folder.
+CI builds all platforms (Linux, Windows, Mac ARM, Mac Intel) on tag push.
 
 ## Tech Stack
 
 - **Frontend:** Astro + Svelte 5
-- **Desktop:** Electron
-- **Runtime:** Bun
+- **Desktop:** Tauri 2
+- **Runtime:** Bun (dev), Node 22 (bundled sidecar)
 
 ## Documentation
 
