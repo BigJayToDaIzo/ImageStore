@@ -10,9 +10,10 @@ Application for a cosmetic surgery center to help the photographer sort and safe
 
 ```
 /ImageStore
-  /server        # Gleam API (Wisp/Mist) - see server/CLAUDE.md
-  /client        # Astro + Svelte UI - see client/CLAUDE.md
-  claude.md      # Project-wide context (this file)
+  /client            # Astro + Svelte UI - see client/CLAUDE.md
+  /client/src-tauri  # Tauri 2 Rust backend
+  /scripts           # Build/dev scripts (download-node, test image generator)
+  claude.md          # Project-wide context (this file)
 ```
 
 ## Requirements
@@ -24,14 +25,15 @@ Application for a cosmetic surgery center to help the photographer sort and safe
 
 ## Technology Stack
 
-**Backend:** Gleam (compiles to Erlang/BEAM)
-- Web framework: Wisp or Mist
-- File I/O: simplifile
-- CSV parsing: gsv or similar
+**Backend:** Astro 5 (Node SSR via `@astrojs/node` adapter)
+- REST API endpoints in `/client/src/pages/api/`
+- CSV-based data layer (patients, procedures, surgeons)
 
-**Frontend:** Astro (with Svelte islands for interactivity if needed)
+**Frontend:** Astro 5 + Svelte 5 islands
 
-**Deployment:** Localhost webapp on Mac workstation
+**Desktop Shell:** Tauri 2 (Rust) — runs Astro Node server as sidecar process
+
+**Deployment:** Desktop app (AppImage/DMG/EXE) for local workstation
 
 ## Application Purpose
 **File sorting/filing tool** - batch ingest and organize images from various sources.

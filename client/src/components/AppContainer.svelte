@@ -1,7 +1,7 @@
 <script>
 	import ImageSorter from './ImageSorter.svelte';
 	import PatientsTable from './PatientsTable.svelte';
-	import SettingsPanel from './SettingsPanel.svelte';
+	import SettingsPanel from './SettingsPanel/SettingsPanel.svelte';
 
 	let activeTab = $state('sort');
 </script>

@@ -122,9 +122,9 @@ export const POST: APIRoute = async ({ request }) => {
 
     // Get the file - either uploaded from folder picker or referenced by path on disk
     const file = formData.get('file') as File | null;
-    const sourcePath = formData.get('sourcePath') as string | null;
+    const relativeSourcePath = formData.get('relativeSourcePath') as string | null;
 
-    if (!file && !sourcePath) {
+    if (!file && !relativeSourcePath) {
       return new Response(JSON.stringify({ error: 'No file provided' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
@@ -139,7 +139,7 @@ export const POST: APIRoute = async ({ request }) => {
     await mkdir(dir, { recursive: true });
 
     // Resolve full source path (relative to sourceRoot)
-    const fullSourcePath = sourcePath ? join(settings.sourceRoot, sourcePath) : null;
+    const fullSourcePath = relativeSourcePath ? join(settings.sourceRoot, relativeSourcePath) : null;
 
     // Write file - either from upload or copy from source
     if (file) {

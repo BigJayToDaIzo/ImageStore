@@ -21,7 +21,7 @@
 
 	function formatSurgeonName(name: string): string {
 		// Strip "dr_" or "Dr_" prefix and capitalize properly
-		let formatted = name.replace(/^dr[_\s]*/i, '');
+		let formatted = name.replace(/^dr[._\s]*/i, '');
 		// Capitalize first letter of each word
 		return formatted.split(/[\s_]+/).map(word =>
 			word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()

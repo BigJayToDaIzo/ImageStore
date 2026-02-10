@@ -1,219 +1,24 @@
 <script>
-	import CaseNumberInput from './CaseNumberInput.svelte';
+	import CaseNumberInput from './CaseNumberInput/CaseNumberInput.svelte';
+	import { createImageSorterState } from './ImageSorter.svelte.ts';
 
 	let { images: initialImages = [], onFolderChange = null } = $props();
 
-	let images = $state(initialImages);
-	let selectedIndex = $state(0);
-	let hoveredIndex = $state(-1);
-	let folderPath = $state('');
 	let fileInput;
-	let formIsDirty = $state(false);
 	let caseNumberInputRef;
-	let isLoading = $state(true);
-	let loadError = $state('');
-	let isServerLoaded = $state(false); // Track if images came from server vs file picker
 
-	// Modal state
-	let showSwitchModal = $state(false);
-	let pendingIndex = $state(-1);
-	let pendingFolderFiles = $state(null);
-
-	// Load images from default source on mount
-	$effect(() => {
-		loadSourceImages();
+	const state = createImageSorterState({
+		initialImages: () => initialImages,
+		onFolderChange: () => onFolderChange,
+		getFileInput: () => fileInput,
+		getCaseNumberInputRef: () => caseNumberInputRef,
 	});
-
-	async function loadSourceImages() {
-		isLoading = true;
-		loadError = '';
-		try {
-			const res = await fetch('/api/source-images');
-			if (res.ok) {
-				const data = await res.json();
-				if (data.images && data.images.length > 0) {
-					folderPath = data.sourceRoot;
-					images = data.images.map(img => ({
-						src: `/api/source-image?path=${encodeURIComponent(img.path)}`,
-						name: img.name,
-						path: img.path, // Server path for sorting
-						file: null // No File object for server-loaded images
-					}));
-					selectedIndex = 0;
-					isServerLoaded = true;
-				} else if (data.error) {
-					loadError = data.error;
-				}
-			}
-		} catch (e) {
-			console.error('Failed to load source images:', e);
-		} finally {
-			isLoading = false;
-		}
-	}
-
-	// Show hovered image if hovering, otherwise show selected
-	let previewImage = $derived(
-		hoveredIndex >= 0 ? images[hoveredIndex] : images[selectedIndex]
-	);
-
-	function selectImage(index) {
-		if (index === selectedIndex) return;
-
-		if (formIsDirty) {
-			pendingIndex = index;
-			showSwitchModal = true;
-		} else {
-			selectedIndex = index;
-		}
-	}
-
-	function handleModalClearAndSwitch() {
-		caseNumberInputRef?.resetForm();
-		if (pendingFolderFiles) {
-			if (typeof pendingFolderFiles === 'string') {
-				applyFolderChange(pendingFolderFiles);
-			} else {
-				applyFolderChangeLegacy(pendingFolderFiles);
-			}
-			pendingFolderFiles = null;
-		} else if (pendingIndex >= 0) {
-			selectedIndex = pendingIndex;
-			pendingIndex = -1;
-		}
-		showSwitchModal = false;
-	}
-
-	function handleModalKeepAndSwitch() {
-		if (pendingFolderFiles) {
-			if (typeof pendingFolderFiles === 'string') {
-				applyFolderChange(pendingFolderFiles);
-			} else {
-				applyFolderChangeLegacy(pendingFolderFiles);
-			}
-			pendingFolderFiles = null;
-		} else if (pendingIndex >= 0) {
-			selectedIndex = pendingIndex;
-			pendingIndex = -1;
-		}
-		showSwitchModal = false;
-	}
-
-	function handleModalCancel() {
-		showSwitchModal = false;
-		pendingIndex = -1;
-		pendingFolderFiles = null;
-		// Reset file input so the same folder can be selected again
-		if (fileInput) fileInput.value = '';
-	}
-
-	function handleKeydown(event, index) {
-		if (event.key === 'Enter' || event.key === ' ') {
-			event.preventDefault();
-			selectImage(index);
-		}
-	}
-
-	function handleImageSorted() {
-		// Remove the sorted image from the list
-		images = images.filter((_, i) => i !== selectedIndex);
-
-		// Adjust selected index if needed
-		if (selectedIndex >= images.length) {
-			selectedIndex = Math.max(0, images.length - 1);
-		}
-	}
-
-	async function openFolderPicker() {
-		let selectedPath = null;
-
-		if (window.__TAURI_INTERNALS__) {
-			try {
-				const { open } = await import('@tauri-apps/plugin-dialog');
-				const defaultPath = folderPath || undefined;
-				selectedPath = await open({ directory: true, multiple: false, defaultPath });
-			} catch {
-				fileInput?.click();
-				return;
-			}
-		} else {
-			// Not in Tauri (e.g. browser dev) — fall back to HTML file input
-			fileInput?.click();
-			return;
-		}
-
-		if (!selectedPath) return; // User cancelled
-
-		if (formIsDirty) {
-			pendingFolderFiles = selectedPath;
-			showSwitchModal = true;
-		} else {
-			await applyFolderChange(selectedPath);
-		}
-	}
-
-	function handleFolderSelect(event) {
-		// Fallback for non-Tauri: HTML file input with webkitdirectory
-		const files = Array.from(event.target.files || []);
-		const imageFiles = files.filter(file =>
-			file.type.startsWith('image/')
-		);
-
-		if (imageFiles.length > 0) {
-			if (formIsDirty) {
-				pendingFolderFiles = imageFiles;
-				showSwitchModal = true;
-			} else {
-				applyFolderChangeLegacy(imageFiles);
-			}
-		}
-	}
-
-	async function applyFolderChange(dirPath) {
-		// Server-based: ask the API to list images in the selected directory
-		const res = await fetch(`/api/source-images?path=${encodeURIComponent(dirPath)}`);
-		if (!res.ok) return;
-
-		const data = await res.json();
-		if (!data.images || data.images.length === 0) return;
-
-		folderPath = dirPath;
-		onFolderChange?.(folderPath);
-
-		images = data.images.map(img => ({
-			src: `/api/source-image?path=${encodeURIComponent(img.path)}&sourceRoot=${encodeURIComponent(dirPath)}`,
-			name: img.name,
-			path: img.path,
-			file: null
-		}));
-		selectedIndex = 0;
-		hoveredIndex = -1;
-		isServerLoaded = true;
-	}
-
-	function applyFolderChangeLegacy(imageFiles) {
-		// Fallback for non-Tauri: use blob URLs from File objects
-		const firstPath = imageFiles[0].webkitRelativePath;
-		folderPath = firstPath.split('/')[0];
-
-		onFolderChange?.(folderPath);
-
-		images = imageFiles.map(file => ({
-			src: URL.createObjectURL(file),
-			name: file.name,
-			path: file.webkitRelativePath,
-			file: file
-		}));
-		selectedIndex = 0;
-		hoveredIndex = -1;
-		isServerLoaded = false;
-	}
 </script>
 
 <input
 	type="file"
 	bind:this={fileInput}
-	onchange={handleFolderSelect}
+	onchange={state.handleFolderSelect}
 	webkitdirectory
 	multiple
 	hidden
@@ -223,16 +28,16 @@
 	<!-- Left half: Preview image + Thumbnails -->
 	<section class="left-panel">
 		<div class="preview-area">
-			{#if previewImage}
-				<img src={previewImage.src} alt={previewImage.name} />
-			{:else if isLoading}
+			{#if state.previewImage}
+				<img src={state.previewImage.src} alt={state.previewImage.name} />
+			{:else if state.isLoading}
 				<div class="empty-state">
 					<p>Loading source images...</p>
 				</div>
-			{:else if images.length === 0}
+			{:else if state.images.length === 0}
 				<div class="empty-state">
-					<p>{loadError || 'No images in source folder'}</p>
-					<button class="select-folder-btn" onclick={openFolderPicker}>Select Source Folder</button>
+					<p>{state.loadError || 'No images in source folder'}</p>
+					<button class="select-folder-btn" onclick={state.openFolderPicker}>Select Source Folder</button>
 				</div>
 			{:else}
 				<div class="placeholder">Select an image</div>
@@ -240,21 +45,21 @@
 		</div>
 
 		<div class="thumbnails-area">
-			{#if images.length > 0}
+			{#if state.images.length > 0}
 				<div class="folder-header">
-					<span class="folder-path" title={folderPath}>{folderPath}</span>
-					<span class="image-count">{images.length} images</span>
-					<button class="change-folder-btn" onclick={openFolderPicker}>Change</button>
+					<span class="folder-path" title={state.folderPath}>{state.folderPath}</span>
+					<span class="image-count">{state.images.length} images</span>
+					<button class="change-folder-btn" onclick={state.openFolderPicker}>Change</button>
 				</div>
 				<div class="thumbnail-grid">
-					{#each images as image, index}
+					{#each state.images as image, index}
 						<button
 							class="thumbnail"
-							class:selected={index === selectedIndex}
-							onclick={() => selectImage(index)}
-							onkeydown={(e) => handleKeydown(e, index)}
-							onmouseenter={() => hoveredIndex = index}
-							onmouseleave={() => hoveredIndex = -1}
+							class:selected={index === state.selectedIndex}
+							onclick={() => state.selectImage(index)}
+							onkeydown={(e) => state.handleKeydown(e, index)}
+							onmouseenter={() => state.hoveredIndex = index}
+							onmouseleave={() => state.hoveredIndex = -1}
 							type="button"
 						>
 							<img src={image.src} alt={image.name} />
@@ -270,24 +75,24 @@
 	<section class="form-panel">
 		<CaseNumberInput
 			bind:this={caseNumberInputRef}
-			selectedFile={images[selectedIndex]?.file}
-			selectedFilename={images[selectedIndex]?.name}
-			selectedPath={images[selectedIndex]?.path}
-			onSorted={handleImageSorted}
-			bind:isDirty={formIsDirty}
+			selectedFile={state.images[state.selectedIndex]?.file}
+			selectedFilename={state.images[state.selectedIndex]?.name}
+			selectedPath={state.images[state.selectedIndex]?.path}
+			onSorted={state.handleImageSorted}
+			bind:isDirty={state.formIsDirty}
 		/>
 	</section>
 </div>
 
-{#if showSwitchModal}
-	<div class="modal-overlay" onclick={handleModalCancel}>
+{#if state.showSwitchModal}
+	<div class="modal-overlay" onclick={state.handleModalCancel}>
 		<div class="modal" onclick={(e) => e.stopPropagation()}>
-			<h3>{pendingFolderFiles ? 'Change Folder?' : 'Switch Image?'}</h3>
+			<h3>{state.pendingFolderFiles ? 'Change Folder?' : 'Switch Image?'}</h3>
 			<p>You have unsaved changes in the form. What would you like to do?</p>
 			<div class="modal-actions">
-				<button class="modal-btn secondary" onclick={handleModalCancel}>Cancel</button>
-				<button class="modal-btn" onclick={handleModalKeepAndSwitch}>Keep Form & {pendingFolderFiles ? 'Change' : 'Switch'}</button>
-				<button class="modal-btn primary" onclick={handleModalClearAndSwitch}>Clear & {pendingFolderFiles ? 'Change' : 'Switch'}</button>
+				<button class="modal-btn secondary" onclick={state.handleModalCancel}>Cancel</button>
+				<button class="modal-btn" onclick={state.handleModalKeepAndSwitch}>Keep Form & {state.pendingFolderFiles ? 'Change' : 'Switch'}</button>
+				<button class="modal-btn primary" onclick={state.handleModalClearAndSwitch}>Clear & {state.pendingFolderFiles ? 'Change' : 'Switch'}</button>
 			</div>
 		</div>
 	</div>
