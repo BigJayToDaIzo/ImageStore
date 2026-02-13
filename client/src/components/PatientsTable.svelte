@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { Patient } from '../lib/patients';
 
+	let { active = true } = $props();
+
 	let patients = $state<Patient[]>([]);
 	let searchQuery = $state('');
 	let isLoading = $state(true);
@@ -107,7 +109,7 @@
 	});
 
 	$effect(() => {
-		loadPatients();
+		if (active) loadPatients();
 	});
 
 	async function loadPatients() {

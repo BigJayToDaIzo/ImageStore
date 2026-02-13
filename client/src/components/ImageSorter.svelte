@@ -2,7 +2,7 @@
 	import CaseNumberInput from './CaseNumberInput/CaseNumberInput.svelte';
 	import { createImageSorterState } from './ImageSorter.svelte.ts';
 
-	let { images: initialImages = [], onFolderChange = null } = $props();
+	let { images: initialImages = [], onFolderChange = null, active = true } = $props();
 
 	let fileInput;
 	let caseNumberInputRef;
@@ -12,6 +12,7 @@
 		onFolderChange: () => onFolderChange,
 		getFileInput: () => fileInput,
 		getCaseNumberInputRef: () => caseNumberInputRef,
+		isActive: () => active,
 	});
 </script>
 

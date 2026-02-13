@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Generate test images for ImageStore development.
 
-Creates two folders inside ~/Documents/ImageStore/unsorted/:
-  test-img/          — white background, black shapes (normal)
-  test-inverse-img/  — black background, white shapes (inverse)
+Creates 8 images directly in ~/Documents/ImageStore/unsorted/:
+  {shape}.png         — white background, black shape (normal)
+  {shape}_inverse.png — black background, white shape (inverse)
 
 Requires: pip install Pillow
 """
@@ -67,24 +67,24 @@ SHAPES = [
 
 
 def generate_images():
-    normal_dir = str(UNSORTED_DIR / "test-img")
-    inverse_dir = str(UNSORTED_DIR / "test-inverse-img")
-    os.makedirs(normal_dir, exist_ok=True)
-    os.makedirs(inverse_dir, exist_ok=True)
+    out_dir = str(UNSORTED_DIR)
+    os.makedirs(out_dir, exist_ok=True)
 
+    count = 0
     for name, draw_fn in SHAPES:
         # Normal: white background, black shape
         img = Image.new("RGB", (WIDTH, HEIGHT), "white")
         draw_fn(ImageDraw.Draw(img), "black")
-        img.save(os.path.join(normal_dir, f"{name}.png"))
+        img.save(os.path.join(out_dir, f"{name}.png"))
+        count += 1
 
         # Inverse: black background, white shape
         img = Image.new("RGB", (WIDTH, HEIGHT), "black")
         draw_fn(ImageDraw.Draw(img), "white")
-        img.save(os.path.join(inverse_dir, f"{name}.png"))
+        img.save(os.path.join(out_dir, f"{name}_inverse.png"))
+        count += 1
 
-    print(f"Created {len(SHAPES)} images in {normal_dir}")
-    print(f"Created {len(SHAPES)} images in {inverse_dir}")
+    print(f"Created {count} images in {out_dir}")
 
 
 if __name__ == "__main__":

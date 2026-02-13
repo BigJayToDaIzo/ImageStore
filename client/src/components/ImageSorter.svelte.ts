@@ -3,6 +3,7 @@ interface ImageSorterProps {
 	onFolderChange: () => ((path: string) => void) | null;
 	getFileInput: () => HTMLInputElement | undefined;
 	getCaseNumberInputRef: () => { resetForm: () => void } | undefined;
+	isActive: () => boolean;
 }
 
 export function createImageSorterState(props: ImageSorterProps) {
@@ -24,9 +25,9 @@ export function createImageSorterState(props: ImageSorterProps) {
 		hoveredIndex >= 0 ? images[hoveredIndex] : images[selectedIndex]
 	);
 
-	// Load images from default source on mount
+	// Load/reload images when tab becomes active
 	$effect(() => {
-		loadSourceImages();
+		if (props.isActive()) loadSourceImages();
 	});
 
 	async function loadSourceImages() {

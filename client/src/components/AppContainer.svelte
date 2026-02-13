@@ -41,10 +41,10 @@
 	</nav>
 
 	<div class="tab-content tab-sort" class:hidden={activeTab !== 'sort'}>
-		<ImageSorter />
+		<ImageSorter active={activeTab === 'sort'} />
 	</div>
 	<div class="tab-content tab-patients" class:hidden={activeTab !== 'patients'}>
-		<PatientsTable />
+		<PatientsTable active={activeTab === 'patients'} />
 	</div>
 	<div class="tab-content tab-settings" class:hidden={activeTab !== 'settings'}>
 		<SettingsPanel />
