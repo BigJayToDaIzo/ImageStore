@@ -126,6 +126,7 @@
 		justify-content: center;
 		padding: 1rem;
 		min-height: 0;
+		overflow: hidden;
 		background: #fee2e2;
 	}
 

@@ -127,7 +127,7 @@
 	.tab-content {
 		flex: 1;
 		display: flex;
-		overflow: visible;
+		overflow: hidden;
 	}
 
 	.tab-content.hidden {
