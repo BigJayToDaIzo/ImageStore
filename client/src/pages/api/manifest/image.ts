@@ -1,11 +1,11 @@
 import type { APIRoute } from 'astro';
-import { getActiveManifest, updateImageStatus } from '../../../lib/manifest';
+import { loadManifest, getActiveManifest, updateImageStatus } from '../../../lib/manifest';
 
 export const prerender = false;
 
 export const PATCH: APIRoute = async ({ request }) => {
   try {
-    const { filename, status, skipReason } = await request.json();
+    const { manifestId, filename, status, skipReason } = await request.json();
 
     if (!filename || !status) {
       return new Response(JSON.stringify({ error: 'Missing required fields: filename, status' }), {
@@ -21,7 +21,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       });
     }
 
-    const manifest = await getActiveManifest();
+    const manifest = manifestId ? await loadManifest(manifestId) : await getActiveManifest();
     if (!manifest) {
       return new Response(JSON.stringify({ error: 'No active manifest' }), {
         status: 404,

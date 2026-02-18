@@ -1627,7 +1627,7 @@ dependencies = [
 
 [[package]]
 name = "imagestore"
-version = "0.2.0"
+version = "0.3.9"
 dependencies = [
  "log",
  "reqwest 0.12.28",

@@ -200,9 +200,10 @@ export async function updateImageStatus(
 
 /**
  * Get the currently active manifest (in_progress or confirming).
+ * Optionally filter by sourcePath to find a manifest for a specific folder.
  * Returns null if no active manifest.
  */
-export async function getActiveManifest(manifestDir?: string): Promise<Manifest | null> {
+export async function getActiveManifest(manifestDir?: string, sourcePath?: string): Promise<Manifest | null> {
   const dir = manifestDir ?? await getManifestDir();
 
   let entries: string[];
@@ -218,7 +219,9 @@ export async function getActiveManifest(manifestDir?: string): Promise<Manifest 
     const content = await readFile(join(dir, file), 'utf-8');
     const manifest = JSON.parse(content) as Manifest;
     if (manifest.status === 'in_progress' || manifest.status === 'confirming') {
-      return manifest;
+      if (!sourcePath || manifest.sourcePath === sourcePath) {
+        return manifest;
+      }
     }
   }
 

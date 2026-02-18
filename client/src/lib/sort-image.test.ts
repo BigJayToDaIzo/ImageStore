@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'bun:test'
 import { mkdir, rm, writeFile, readFile, access, constants, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
-// Modules under test — will be implemented after tests
 import { buildDestinationPath, sortImage, batchCleanup, type SortImageRequest } from './sort-image';
 import { createManifest, loadManifest, type Manifest } from './manifest';
 import { hashFile } from './hash';
@@ -385,7 +384,7 @@ describe('sort-image', () => {
       await expect(access(img2, constants.F_OK)).rejects.toThrow();
     });
 
-    it('should NOT delete source files for skipped images', async () => {
+    it('should delete source files for skipped images', async () => {
       const img1 = join(TEST_SOURCE, 'IMG_001.jpg');
       const img2 = join(TEST_SOURCE, 'IMG_002.jpg');
       await writeFile(img1, 'image1');
@@ -591,5 +590,156 @@ describe('sort-image', () => {
       expect(img1Preserved).toBe(true);
       await expect(access(img2, constants.F_OK)).rejects.toThrow();
     });
+
+    it('should delete skipped source files from non-default source path', async () => {
+      // Simulates a custom folder picked via Tauri dialog
+      const customSource = join(TEST_DIR, 'custom-source');
+      await mkdir(customSource, { recursive: true });
+
+      const img1 = join(customSource, 'DSC_001.jpg');
+      const img2 = join(customSource, 'DSC_002.jpg');
+      const img3 = join(customSource, 'DSC_003.jpg');
+      await writeFile(img1, 'sorted image content');
+      await writeFile(img2, 'skipped image content');
+      await writeFile(img3, 'also skipped content');
+
+      const manifest = await createManifest(customSource, TEST_MANIFESTS);
+
+      // Sort img1
+      await sortImage({
+        metadata: { ...VALID_METADATA, originalFilename: 'DSC_001.jpg' },
+        sourcePath: img1,
+        destinationRoot: TEST_DEST,
+        csvPath: TEST_CSV,
+        manifest,
+        manifestDir: TEST_MANIFESTS,
+      });
+
+      // Skip img2 and img3
+      const { updateImageStatus } = await import('./manifest');
+      await updateImageStatus(manifest, 'DSC_002.jpg', { status: 'skipped' }, TEST_MANIFESTS);
+      await updateImageStatus(manifest, 'DSC_003.jpg', { status: 'skipped' }, TEST_MANIFESTS);
+
+      // Manifest should be in confirming state now
+      expect(manifest.status).toBe('confirming');
+
+      const result = await batchCleanup(manifest, TEST_MANIFESTS);
+
+      expect(result.cleanedCount).toBe(3);
+      expect(result.failedCount).toBe(0);
+
+      // ALL source files should be gone — sorted AND skipped
+      for (const f of [img1, img2, img3]) {
+        const exists = await access(f, constants.F_OK).then(() => true, () => false);
+        expect(exists).toBe(false);
+      }
+    });
+
+    it('should work when manifest is still in_progress (not all images processed)', async () => {
+      const img1 = join(TEST_SOURCE, 'IMG_001.jpg');
+      const img2 = join(TEST_SOURCE, 'IMG_002.jpg');
+      const img3 = join(TEST_SOURCE, 'IMG_003.jpg');
+      await writeFile(img1, 'sorted content');
+      await writeFile(img2, 'skipped content');
+      await writeFile(img3, 'pending content');
+
+      const manifest = await createManifest(TEST_SOURCE, TEST_MANIFESTS);
+
+      // Sort img1
+      await sortImage({
+        metadata: { ...VALID_METADATA, originalFilename: 'IMG_001.jpg' },
+        sourcePath: img1,
+        destinationRoot: TEST_DEST,
+        csvPath: TEST_CSV,
+        manifest,
+        manifestDir: TEST_MANIFESTS,
+      });
+
+      // Skip img2 — but leave img3 pending
+      const { updateImageStatus } = await import('./manifest');
+      await updateImageStatus(manifest, 'IMG_002.jpg', { status: 'skipped' }, TEST_MANIFESTS);
+
+      // Manifest should still be in_progress (img3 is pending)
+      expect(manifest.status).toBe('in_progress');
+
+      // batchCleanup should still process sorted and skipped, leave pending alone
+      const result = await batchCleanup(manifest, TEST_MANIFESTS);
+
+      expect(result.cleanedCount).toBe(2); // img1 (sorted) + img2 (skipped)
+      expect(result.failedCount).toBe(0);
+
+      // img1 and img2 deleted
+      const img1Exists = await access(img1, constants.F_OK).then(() => true, () => false);
+      const img2Exists = await access(img2, constants.F_OK).then(() => true, () => false);
+      expect(img1Exists).toBe(false);
+      expect(img2Exists).toBe(false);
+
+      // img3 (pending) should still exist
+      const img3Exists = await access(img3, constants.F_OK).then(() => true, () => false);
+      expect(img3Exists).toBe(true);
+    });
+
+    it('should reload manifest from disk and still find skipped images', async () => {
+      // Simulates what the cleanup endpoint does: load manifest by ID, then clean
+      const img1 = join(TEST_SOURCE, 'IMG_001.jpg');
+      const img2 = join(TEST_SOURCE, 'IMG_002.jpg');
+      await writeFile(img1, 'sorted');
+      await writeFile(img2, 'skipped');
+
+      const manifest = await createManifest(TEST_SOURCE, TEST_MANIFESTS);
+
+      await sortImage({
+        metadata: { ...VALID_METADATA, originalFilename: 'IMG_001.jpg' },
+        sourcePath: img1,
+        destinationRoot: TEST_DEST,
+        csvPath: TEST_CSV,
+        manifest,
+        manifestDir: TEST_MANIFESTS,
+      });
+
+      const { updateImageStatus } = await import('./manifest');
+      await updateImageStatus(manifest, 'IMG_002.jpg', { status: 'skipped' }, TEST_MANIFESTS);
+
+      // Now reload from disk (like the cleanup endpoint does)
+      const reloaded = await loadManifest(manifest.id, TEST_MANIFESTS);
+      expect(reloaded).not.toBeNull();
+      expect(reloaded!.status).toBe('confirming');
+      expect(reloaded!.images.find(i => i.filename === 'IMG_002.jpg')!.status).toBe('skipped');
+
+      // Run cleanup on the reloaded manifest
+      const result = await batchCleanup(reloaded!, TEST_MANIFESTS);
+
+      expect(result.cleanedCount).toBe(2);
+      const img2Exists = await access(img2, constants.F_OK).then(() => true, () => false);
+      expect(img2Exists).toBe(false);
+    });
   });
+
+  /*
+   * Coverage gaps in sort-image.ts (uncovered lines noted for reference):
+   *
+   * sortImage():
+   *   - L107: manifest image exists but has no sourceHash (falls through to hashFile).
+   *     Requires a manifest with an image entry whose sourceHash is falsy — hard to
+   *     construct without mocking createManifest which always hashes on creation.
+   *   - L124-132: hash mismatch after copy (destHash !== sourceHash). Would require
+   *     corrupting the temp file between copyFile and hashFile — needs fs-level mocking
+   *     or a custom stream that writes bad data mid-copy.
+   *   - L175-180: manifest error-status update on sortImage failure. The outer catch
+   *     tries to set status='error' on the manifest, but triggering a failure that
+   *     reaches the catch AFTER the manifest is set (but before the happy return)
+   *     requires simulating an fs error mid-operation (e.g., rename fails after copy).
+   *
+   * batchCleanup():
+   *   - L212-217: sorted image with null destinationPath or destinationHash. sortImage
+   *     always sets both on success, so this guard only fires if the manifest was
+   *     hand-edited or corrupted — not reachable through normal API flow.
+   *   - L258-262: unlink fails for a skipped image source. Would need the file to
+   *     vanish or become unreadable between the status check and the unlink — a race
+   *     condition that requires fs mocking or OS-level intervention.
+   *
+   * All of these are defensive error-handling branches. Testing them properly would
+   * require mocking Node fs primitives (copyFile, unlink, rename, hashFile), which
+   * we've avoided to keep tests as real-fs integration tests.
+   */
 });

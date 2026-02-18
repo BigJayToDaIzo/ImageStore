@@ -3,9 +3,11 @@ import { getActiveManifest } from '../../../lib/manifest';
 
 export const prerender = false;
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ request }) => {
   try {
-    const manifest = await getActiveManifest();
+    const url = new URL(request.url);
+    const sourcePath = url.searchParams.get('sourcePath') || undefined;
+    const manifest = await getActiveManifest(undefined, sourcePath);
 
     return new Response(JSON.stringify({ manifest: manifest ?? null }), {
       status: 200,
