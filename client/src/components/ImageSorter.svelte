@@ -6,6 +6,7 @@
 
 	let fileInput;
 	let caseNumberInputRef;
+	let thumbnailWrapper;
 
 	const state = createImageSorterState({
 		initialImages: () => initialImages,
@@ -13,6 +14,13 @@
 		getFileInput: () => fileInput,
 		getCaseNumberInputRef: () => caseNumberInputRef,
 		isActive: () => active,
+	});
+
+	$effect(() => {
+		const idx = state.selectedIndex;
+		if (idx < 0 || !thumbnailWrapper) return;
+		const thumb = thumbnailWrapper.querySelector('.thumbnail.selected');
+		if (thumb) thumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 	});
 </script>
 
@@ -64,20 +72,7 @@
 						{state.isPracticeLoading ? 'Generating...' : 'Practice'}
 					</button>
 				</div>
-				<div class="thumbnail-grid-wrapper">
-					{#if state.showCompleteModal}
-						<div class="complete-overlay">
-							<div class="complete-card">
-								<h3>Session Complete</h3>
-								<p>{state.sortedCount} sorted{#if state.skippedCount > 0}, {state.skippedCount} skipped{/if}</p>
-								<p class="complete-warning">This will verify all copies and permanently delete the source files.</p>
-								<div class="complete-actions">
-									<button class="complete-btn purge" onclick={state.completeSession}>Purge Sources</button>
-									<button class="complete-btn dismiss" onclick={state.dismissCompleteModal}>Keep Files</button>
-								</div>
-							</div>
-						</div>
-					{/if}
+				<div class="thumbnail-grid-wrapper" bind:this={thumbnailWrapper}>
 					<div class="thumbnail-grid">
 						{#each state.images as image, index}
 							<button
@@ -132,6 +127,20 @@
 				<button class="modal-btn secondary" onclick={state.handleModalCancel}>Cancel</button>
 				<button class="modal-btn" onclick={state.handleModalKeepAndSwitch}>Keep Form & {state.pendingFolderFiles ? 'Change' : 'Switch'}</button>
 				<button class="modal-btn primary" onclick={state.handleModalClearAndSwitch}>Clear & {state.pendingFolderFiles ? 'Change' : 'Switch'}</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if state.showCompleteModal}
+	<div class="complete-overlay" onclick={state.dismissCompleteModal}>
+		<div class="complete-card" onclick={(e) => e.stopPropagation()}>
+			<h3>Session Complete</h3>
+			<p>{state.sortedCount} sorted{#if state.skippedCount > 0}, {state.skippedCount} skipped{/if}</p>
+			<p class="complete-warning">This will verify all copies and permanently delete the source files.</p>
+			<div class="complete-actions">
+				<button class="complete-btn purge" onclick={state.completeSession}>Purge Sources</button>
+				<button class="complete-btn dismiss" onclick={state.dismissCompleteModal}>Keep Files</button>
 			</div>
 		</div>
 	</div>
@@ -228,24 +237,22 @@
 		cursor: not-allowed;
 	}
 
-	/* Session complete overlay (over thumbnails) */
+	/* Thumbnail grid wrapper */
 	.thumbnail-grid-wrapper {
-		position: relative;
 		flex: 1;
-		display: flex;
-		flex-direction: column;
 		min-height: 0;
-		overflow: hidden;
+		overflow-x: auto;
+		overflow-y: hidden;
 	}
 
 	.complete-overlay {
-		position: absolute;
+		position: fixed;
 		inset: 0;
-		background: rgba(254, 226, 226, 0.92);
+		background: rgba(0, 0, 0, 0.5);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		z-index: 10;
+		z-index: 1000;
 	}
 
 	.complete-card {
@@ -352,6 +359,7 @@
 		flex: 0 0 25%;
 		border-top: 1px solid #fca5a5;
 		background: #fee2e2;
+		overflow: hidden;
 	}
 
 	.folder-header {
@@ -395,12 +403,10 @@
 
 	.thumbnail-grid {
 		display: flex;
-		flex-wrap: wrap;
-		align-content: flex-start;
+		flex-wrap: nowrap;
+		align-items: flex-start;
 		gap: 0.5rem;
 		padding: 0.75rem;
-		overflow-y: auto;
-		flex: 1;
 	}
 
 	.thumbnail {

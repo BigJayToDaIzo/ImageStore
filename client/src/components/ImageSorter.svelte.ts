@@ -123,6 +123,9 @@ export function createImageSorterState(props: ImageSorterProps) {
 				// Session already active (race condition) — use it
 				const { manifest } = await createRes.json();
 				if (manifest) applyManifest(manifest);
+			} else {
+				const err = await createRes.json().catch(() => ({}));
+				console.error('Manifest create failed:', createRes.status, err);
 			}
 		} catch (e) {
 			console.error('Failed to init manifest:', e);
@@ -503,9 +506,13 @@ export function createImageSorterState(props: ImageSorterProps) {
 					ctx.lineWidth = 4;
 					ctx.strokeRect(20, 20, 600, 440);
 
-					const blob: Blob = await new Promise((resolve) =>
-						canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.85)
-					);
+					// Use toDataURL instead of toBlob for WKWebView compatibility
+					const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+					const byteString = atob(dataUrl.split(',')[1]);
+					const ab = new ArrayBuffer(byteString.length);
+					const ia = new Uint8Array(ab);
+					for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+					const blob = new Blob([ab], { type: 'image/jpeg' });
 
 					const safeName = `practice_${patient.id}_${img.angle.toLowerCase()}_${img.type.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}.jpg`;
 					formData.append('images', blob, safeName);
