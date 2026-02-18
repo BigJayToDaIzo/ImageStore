@@ -1,7 +1,7 @@
 {
   "name": "imagestore-client",
   "type": "module",
-  "version": "0.2.7",
+  "version": "0.3.7",
   "description": "Medical image sorting and patient management",
   "author": "JM <me@josephmyers.dev>",
   "scripts": {
