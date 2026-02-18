@@ -62,7 +62,7 @@
 			{#if state.images.length > 0}
 				<div class="folder-header">
 					<span class="folder-path" title={state.folderPath}>{state.folderPath}</span>
-					<span class="image-count">{#if state.manifestId}{state.sortedCount}/{state.images.length} sorted{#if state.skippedCount > 0} · {state.skippedCount} skipped{/if}{:else}{state.images.length} images{/if}</span>
+					<span class="image-count">{state.sortedCount}/{state.images.length} sorted{#if state.skippedCount > 0} · {state.skippedCount} skipped{/if}</span>
 					<button class="change-folder-btn" onclick={state.openFolderPicker}>Change</button>
 					{#if state.manifestId}
 						<button class="change-folder-btn finish-btn" onclick={state.completeSession} title="Finish session and clean up">Finish</button>
@@ -93,7 +93,7 @@
 									<span class="status-badge sorted-badge">&#10003;</span>
 								{:else if state.imageStatuses[image.name] === 'skipped'}
 									<button class="status-badge undo-badge" type="button" onclick={(e) => { e.stopPropagation(); state.undoSkip(index); }} title="Undo skip">&#8630;</button>
-								{:else if state.imageStatuses[image.name] !== 'error' && state.manifestId}
+								{:else if state.imageStatuses[image.name] !== 'error'}
 									<button class="status-badge skip-badge" type="button" onclick={(e) => { e.stopPropagation(); state.skipImage(index); }} title="Skip image">&#10005;</button>
 								{/if}
 							</button>

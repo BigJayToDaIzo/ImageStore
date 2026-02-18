@@ -247,6 +247,14 @@ export function createImageSorterState(props: ImageSorterProps) {
 		const image = images[index];
 		if (!image) return;
 
+		if (!manifestId) {
+			// Local-only tracking when no server manifest
+			imageStatuses[image.name] = 'skipped';
+			imageStatuses = imageStatuses;
+			advanceToNextPending();
+			return;
+		}
+
 		try {
 			const res = await fetch('/api/manifest/image', {
 				method: 'PATCH',
@@ -265,6 +273,13 @@ export function createImageSorterState(props: ImageSorterProps) {
 	async function undoSkip(index: number) {
 		const image = images[index];
 		if (!image) return;
+
+		if (!manifestId) {
+			// Local-only tracking when no server manifest
+			imageStatuses[image.name] = 'pending';
+			imageStatuses = imageStatuses;
+			return;
+		}
 
 		try {
 			const res = await fetch('/api/manifest/image', {
@@ -506,13 +521,12 @@ export function createImageSorterState(props: ImageSorterProps) {
 					ctx.lineWidth = 4;
 					ctx.strokeRect(20, 20, 600, 440);
 
-					// Use toDataURL instead of toBlob for WKWebView compatibility
-					const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-					const byteString = atob(dataUrl.split(',')[1]);
-					const ab = new ArrayBuffer(byteString.length);
-					const ia = new Uint8Array(ab);
-					for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
-					const blob = new Blob([ab], { type: 'image/jpeg' });
+					const blob: Blob = await new Promise((resolve, reject) => {
+						canvas.toBlob(
+							(b) => b ? resolve(b) : reject(new Error('Canvas toBlob failed')),
+							'image/png'
+						);
+					});
 
 					const safeName = `practice_${patient.id}_${img.angle.toLowerCase()}_${img.type.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}.jpg`;
 					formData.append('images', blob, safeName);

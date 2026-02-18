@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { loadManifest, abandonManifest } from '../../../lib/manifest';
+import { loadManifest, abandonManifest, deleteManifestFile } from '../../../lib/manifest';
 
 export const prerender = false;
 
@@ -23,6 +23,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     await abandonManifest(manifest);
+    await deleteManifestFile(manifestId);
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

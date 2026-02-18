@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { readdir, stat } from 'node:fs/promises';
+import { mkdir, readdir, stat } from 'node:fs/promises';
 import { join, extname } from 'node:path';
 import { loadSettings } from '../../lib/settings';
 
@@ -21,17 +21,11 @@ export const GET: APIRoute = async ({ request }) => {
       });
     }
 
+    // Ensure source directory exists
+    await mkdir(sourceRoot, { recursive: true });
+
     // Read directory contents
-    let entries;
-    try {
-      entries = await readdir(sourceRoot, { withFileTypes: true });
-    } catch {
-      // Directory doesn't exist or isn't accessible
-      return new Response(JSON.stringify({ images: [], sourceRoot, error: 'Source folder not accessible' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
+    const entries = await readdir(sourceRoot, { withFileTypes: true });
 
     // Filter for image files
     const images = [];
