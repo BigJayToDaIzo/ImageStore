@@ -197,6 +197,9 @@ Rewrite `/api/*` endpoints and data layer (patients.ts, procedures.ts, surgeons.
 - [x] Clean up abandoned `server/` directory (planned Gleam backend never implemented)
 
 ## Next Session
+- [ ] **MERGE FROM DESKTOP:** Thumbnail session management (skipped/success/failure/untouched status badges) exists on local desktop repo but was never pushed. Needs merge into this repo.
+  - Expect conflicts in `ImageSorter.svelte.ts` — current code removes images from array on sort (`handleImageSorted` at line 118), desktop version likely keeps them with a status field
+  - May also touch `ImageSorter.svelte` (thumbnail rendering with status indicators/badges)
 - [ ] Filter for malformed case numbers once schema is defined (schema TBD)
 - [x] ~~Test Electron build on Mac~~ — Replaced by Tauri, all platforms building in CI
 
@@ -289,5 +292,12 @@ Rewrite `/api/*` endpoints and data layer (patients.ts, procedures.ts, surgeons.
 - [x] Live destination path preview with placeholders
 - [x] Submit button with form validation
 
+## Completed 2026-02-17
+- [x] Fix preview image overflow pushing thumbnails out of view (v0.2.7)
+  - **Root cause:** `overflow: visible` on `.tab-content` (AppContainer.svelte) broke the CSS height containment chain. Percentage-based `flex: 0 0 75%` on `.preview-area` couldn't resolve against a definite height, so large images expanded to intrinsic size and pushed thumbnails off-screen.
+  - **Fix 1:** AppContainer.svelte — changed `.tab-content` from `overflow: visible` to `overflow: hidden`
+  - **Fix 2:** ImageSorter.svelte — added `overflow: hidden` to `.preview-area`
+  - **Why the v0.2.5 fix was incomplete:** Commit `2c7ff3e` correctly set `flex: 0 0 75%` / `flex: 0 0 25%`, but without `overflow: hidden` on the ancestor containers, the percentage flex-basis had no definite height to resolve against. Both fixes are needed: the containment chain from `.tab-content` down must be fully `overflow: hidden` for the 75/25 split to hold.
+
 ---
-*Last updated: 2026-02-06 (CI/CD + app icon)*
+*Last updated: 2026-02-17 (preview overflow fix)*
