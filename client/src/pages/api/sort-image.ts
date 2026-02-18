@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { access, writeFile, unlink, constants } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { loadSettings } from '../../lib/settings';
-import { getActiveManifest } from '../../lib/manifest';
+import { loadManifest, getActiveManifest } from '../../lib/manifest';
 import { sortImage } from '../../lib/sort-image';
 
 export const prerender = false;
@@ -127,8 +127,9 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // Get active manifest (optional — sort works without it)
-    const manifest = await getActiveManifest();
+    // Get manifest by ID if provided, otherwise fall back to active manifest
+    const formManifestId = formData.get('manifestId') as string | null;
+    const manifest = formManifestId ? await loadManifest(formManifestId) : await getActiveManifest();
 
     // Look up sourceHash from manifest if available
     let sourceHash: string | undefined;

@@ -204,6 +204,7 @@ Rewrite `/api/*` endpoints and data layer (patients.ts, procedures.ts, surgeons.
 - [x] ~~Test Electron build on Mac~~ — Replaced by Tauri, all platforms building in CI
 
 ## Post-MVP
+- [ ] Session complete modal purge options: full purge (sorted + skipped), purge sorted only (leave skipped), or keep all files
 - [ ] Procedure favorites filter: show favorites first, "Other..." reveals full list with type-to-filter
 - [ ] Figure out how to manage surgery packages (multiple procedures per surgery, bundled pricing, etc.)
 - [ ] Show clickable links to browse images in file system for existing case numbers

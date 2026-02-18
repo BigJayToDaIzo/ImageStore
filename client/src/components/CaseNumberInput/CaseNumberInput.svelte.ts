@@ -33,6 +33,7 @@ interface CaseNumberInputProps {
 	selectedFilename: () => string;
 	selectedPath: () => string;
 	sourceRoot: () => string;
+	manifestId: () => string | null;
 	onSorted: () => () => void;
 	onDirtyChange: (dirty: boolean) => void;
 }
@@ -510,6 +511,11 @@ export function createCaseNumberInputState(props: CaseNumberInputProps) {
 				if (customSourceRoot) {
 					formData.append('sourceRoot', customSourceRoot);
 				}
+			}
+
+			const mid = props.manifestId();
+			if (mid) {
+				formData.append('manifestId', mid);
 			}
 
 			formData.append('caseNumber', caseNumber);

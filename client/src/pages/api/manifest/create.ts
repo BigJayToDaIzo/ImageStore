@@ -14,10 +14,11 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    const existing = await getActiveManifest();
+    // Check if a manifest already exists for this specific source path
+    const existing = await getActiveManifest(undefined, sourcePath);
     if (existing) {
-      return new Response(JSON.stringify({ error: 'A manifest session is already active', manifest: existing }), {
-        status: 409,
+      return new Response(JSON.stringify({ manifest: existing }), {
+        status: 200,
         headers: { 'Content-Type': 'application/json' }
       });
     }

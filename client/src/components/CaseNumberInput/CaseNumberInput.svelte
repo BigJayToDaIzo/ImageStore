@@ -11,6 +11,7 @@
 		selectedFilename = '',
 		selectedPath = '',
 		sourceRoot = '',
+		manifestId = null,
 		onSorted = () => {},
 		isDirty = $bindable(false)
 	} = $props();
@@ -20,6 +21,7 @@
 		selectedFilename: () => selectedFilename,
 		selectedPath: () => selectedPath,
 		sourceRoot: () => sourceRoot,
+		manifestId: () => manifestId,
 		onSorted: () => onSorted,
 		onDirtyChange: (dirty) => { isDirty = dirty; },
 	});

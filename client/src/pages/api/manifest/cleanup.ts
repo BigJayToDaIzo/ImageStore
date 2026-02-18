@@ -1,12 +1,20 @@
 import type { APIRoute } from 'astro';
-import { getActiveManifest, deleteManifestFile } from '../../../lib/manifest';
+import { loadManifest, getActiveManifest, deleteManifestFile } from '../../../lib/manifest';
 import { batchCleanup } from '../../../lib/sort-image';
 
 export const prerender = false;
 
-export const POST: APIRoute = async () => {
+export const POST: APIRoute = async ({ request }) => {
   try {
-    const manifest = await getActiveManifest();
+    let manifestId: string | undefined;
+    try {
+      const body = await request.json();
+      manifestId = body.manifestId;
+    } catch {
+      // No body or invalid JSON — fall back to getActiveManifest
+    }
+
+    const manifest = manifestId ? await loadManifest(manifestId) : await getActiveManifest();
     if (!manifest) {
       return new Response(JSON.stringify({ error: 'No active manifest' }), {
         status: 404,
@@ -14,8 +22,8 @@ export const POST: APIRoute = async () => {
       });
     }
 
-    if (manifest.status !== 'confirming') {
-      return new Response(JSON.stringify({ error: 'Manifest must be in "confirming" status to clean up' }), {
+    if (manifest.status === 'completed' || manifest.status === 'abandoned') {
+      return new Response(JSON.stringify({ error: 'Manifest is already completed or abandoned' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });

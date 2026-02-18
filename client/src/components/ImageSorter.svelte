@@ -64,10 +64,8 @@
 					<span class="folder-path" title={state.folderPath}>{state.folderPath}</span>
 					<span class="image-count">{state.sortedCount}/{state.images.length} sorted{#if state.skippedCount > 0} · {state.skippedCount} skipped{/if}</span>
 					<button class="change-folder-btn" onclick={state.openFolderPicker}>Change</button>
-					{#if state.manifestId}
-						<button class="change-folder-btn finish-btn" onclick={state.completeSession} title="Finish session and clean up">Finish</button>
-						<button class="change-folder-btn abandon-btn" onclick={state.abandonSession} title="Abandon session and start fresh">Reset</button>
-					{/if}
+					<button class="change-folder-btn finish-btn" onclick={state.completeSession} title="Finish session and clean up">Finish</button>
+					<button class="change-folder-btn abandon-btn" onclick={state.abandonSession} title="Abandon session and start fresh">Reset</button>
 					<button class="change-folder-btn practice-header-btn" onclick={state.generatePracticeSession} disabled={state.isPracticeLoading}>
 						{state.isPracticeLoading ? 'Generating...' : 'Practice'}
 					</button>
@@ -112,6 +110,7 @@
 			selectedFilename={state.images[state.selectedIndex]?.name}
 			selectedPath={state.images[state.selectedIndex]?.path}
 			sourceRoot={state.folderPath}
+			manifestId={state.manifestId}
 			onSorted={state.handleImageSorted}
 			bind:isDirty={state.formIsDirty}
 		/>
@@ -137,11 +136,18 @@
 		<div class="complete-card" onclick={(e) => e.stopPropagation()}>
 			<h3>Session Complete</h3>
 			<p>{state.sortedCount} sorted{#if state.skippedCount > 0}, {state.skippedCount} skipped{/if}</p>
-			<p class="complete-warning">This will verify all copies and permanently delete the source files.</p>
-			<div class="complete-actions">
-				<button class="complete-btn purge" onclick={state.completeSession}>Purge Sources</button>
-				<button class="complete-btn dismiss" onclick={state.dismissCompleteModal}>Keep Files</button>
-			</div>
+			{#if state.manifestId}
+				<p class="complete-warning">This will verify all copies and permanently delete the source files.</p>
+				<div class="complete-actions">
+					<button class="complete-btn purge" onclick={state.completeSession}>Purge Sources</button>
+					<button class="complete-btn dismiss" onclick={state.dismissCompleteModal}>Keep Files</button>
+				</div>
+			{:else}
+				<p class="complete-warning">Source files cannot be purged — folder was loaded via browser picker. Use the Tauri app or default source folder for purge support.</p>
+				<div class="complete-actions">
+					<button class="complete-btn dismiss" onclick={state.dismissCompleteModal}>OK</button>
+				</div>
+			{/if}
 		</div>
 	</div>
 {/if}

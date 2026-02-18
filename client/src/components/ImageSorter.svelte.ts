@@ -38,7 +38,7 @@ export function createImageSorterState(props: ImageSorterProps) {
 	let skippedCount = $derived(Object.values(imageStatuses).filter(s => s === 'skipped').length);
 	let pendingCount = $derived(images.length - sortedCount - skippedCount);
 	let isSessionComplete = $derived(
-		images.length > 0 && manifestId !== null &&
+		images.length > 0 &&
 		images.every((img: any) => {
 			const s = imageStatuses[img.name];
 			return s && s !== 'pending' && s !== 'sorting';
@@ -91,26 +91,17 @@ export function createImageSorterState(props: ImageSorterProps) {
 
 	async function initManifest(sourceRoot: string) {
 		try {
-			// Check for existing active session
-			const currentRes = await fetch('/api/manifest/current');
-			if (currentRes.ok) {
-				const { manifest } = await currentRes.json();
-				if (manifest && manifest.sourcePath === sourceRoot) {
-					// Resume existing session
-					applyManifest(manifest);
-					return;
-				}
-				// Active manifest for a different folder — abandon it before creating new
+			// Look for an existing manifest for this specific source folder
+			const findRes = await fetch(`/api/manifest/current?sourcePath=${encodeURIComponent(sourceRoot)}`);
+			if (findRes.ok) {
+				const { manifest } = await findRes.json();
 				if (manifest) {
-					await fetch('/api/manifest/abandon', {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ manifestId: manifest.id }),
-					});
+						applyManifest(manifest);
+					return;
 				}
 			}
 
-			// Create new manifest
+			// No existing manifest for this folder — create one
 			const createRes = await fetch('/api/manifest/create', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -119,16 +110,12 @@ export function createImageSorterState(props: ImageSorterProps) {
 			if (createRes.ok) {
 				const { manifest } = await createRes.json();
 				applyManifest(manifest);
-			} else if (createRes.status === 409) {
-				// Session already active (race condition) — use it
-				const { manifest } = await createRes.json();
-				if (manifest) applyManifest(manifest);
 			} else {
 				const err = await createRes.json().catch(() => ({}));
-				console.error('Manifest create failed:', createRes.status, err);
+				loadError = err.error || 'Failed to create session manifest';
 			}
-		} catch (e) {
-			console.error('Failed to init manifest:', e);
+		} catch {
+			loadError = 'Failed to initialize session';
 		}
 	}
 
@@ -152,12 +139,12 @@ export function createImageSorterState(props: ImageSorterProps) {
 	}
 
 	async function refreshManifest() {
+		if (!manifestId) return;
 		try {
-			const res = await fetch('/api/manifest/current');
+			const res = await fetch(`/api/manifest/current?sourcePath=${encodeURIComponent(folderPath)}`);
 			if (res.ok) {
 				const { manifest } = await res.json();
-				if (manifest) {
-					manifestId = manifest.id;
+				if (manifest && manifest.id === manifestId) {
 					manifestStatus = manifest.status;
 					const newStatuses: Record<string, string> = {};
 					for (const img of manifest.images) {
@@ -259,7 +246,7 @@ export function createImageSorterState(props: ImageSorterProps) {
 			const res = await fetch('/api/manifest/image', {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ filename: image.name, status: 'skipped' }),
+				body: JSON.stringify({ manifestId, filename: image.name, status: 'skipped' }),
 			});
 			if (res.ok) {
 				const { manifest } = await res.json();
@@ -285,7 +272,7 @@ export function createImageSorterState(props: ImageSorterProps) {
 			const res = await fetch('/api/manifest/image', {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ filename: image.name, status: 'pending' }),
+				body: JSON.stringify({ manifestId, filename: image.name, status: 'pending' }),
 			});
 			if (res.ok) {
 				const { manifest } = await res.json();
@@ -343,15 +330,6 @@ export function createImageSorterState(props: ImageSorterProps) {
 
 		const data = await res.json();
 
-		// Abandon current manifest before switching
-		if (manifestId) {
-			await fetch('/api/manifest/abandon', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ manifestId }),
-			});
-		}
-
 		// Always apply the change, even if new folder is empty
 		folderPath = dirPath;
 		props.onFolderChange()?.(folderPath);
@@ -379,12 +357,46 @@ export function createImageSorterState(props: ImageSorterProps) {
 		}
 	}
 
-	function applyFolderChangeLegacy(imageFiles: File[]) {
+	async function applyFolderChangeLegacy(imageFiles: File[]) {
 		const firstPath = imageFiles[0].webkitRelativePath;
-		folderPath = firstPath.split('/')[0];
+		const folderName = firstPath.split('/')[0];
+		folderPath = folderName;
 
 		props.onFolderChange()?.(folderPath);
 
+		manifestId = null;
+		manifestStatus = null;
+		imageStatuses = {};
+		showCompleteModal = false;
+		completeModalShown = false;
+
+		// Try to resolve the server-side path by checking if source-images knows this folder
+		// (works when the picked folder is the configured source root or a recognizable path)
+		try {
+			const res = await fetch(`/api/source-images?path=${encodeURIComponent(folderName)}`);
+			if (res.ok) {
+				const data = await res.json();
+				if (data.images && data.images.length > 0 && data.sourceRoot) {
+					// Server can see this folder — use server-loaded flow for manifest support
+					folderPath = data.sourceRoot;
+					images = data.images.map((img: any) => ({
+						src: `/api/source-image?path=${encodeURIComponent(img.path)}&sourceRoot=${encodeURIComponent(data.sourceRoot)}`,
+						name: img.name,
+						path: img.path,
+						file: null
+					}));
+					selectedIndex = 0;
+					hoveredIndex = -1;
+					isServerLoaded = true;
+					await initManifest(data.sourceRoot);
+					return;
+				}
+			}
+		} catch {
+			// Server can't resolve — fall through to client-only mode
+		}
+
+		// Fallback: client-only mode (no manifest, no purge capability)
 		images = imageFiles.map(file => ({
 			src: URL.createObjectURL(file),
 			name: file.name,
@@ -394,13 +406,6 @@ export function createImageSorterState(props: ImageSorterProps) {
 		selectedIndex = 0;
 		hoveredIndex = -1;
 		isServerLoaded = false;
-
-		// Reset manifest state for legacy folder picker (no server path)
-		manifestId = null;
-		manifestStatus = null;
-		imageStatuses = {};
-		showCompleteModal = false;
-		completeModalShown = false;
 	}
 
 	function resetLocalState() {
@@ -425,20 +430,20 @@ export function createImageSorterState(props: ImageSorterProps) {
 
 	async function completeSession() {
 		try {
-			// Try cleanup first (verifies hashes, deletes sources — requires 'confirming' status)
-			const cleanupRes = await fetch('/api/manifest/cleanup', { method: 'POST' });
-			if (cleanupRes.ok) {
-				resetLocalState();
+			if (!manifestId) {
+				loadError = 'No active session to purge';
+				showCompleteModal = false;
 				return;
 			}
-
-			// Cleanup failed (not in confirming state) — abandon instead
-			if (manifestId) {
-				await fetch('/api/manifest/abandon', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ manifestId }),
-				});
+			const cleanupRes = await fetch('/api/manifest/cleanup', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ manifestId }),
+			});
+			if (!cleanupRes.ok) {
+				const err = await cleanupRes.json().catch(() => ({}));
+				loadError = err.error || 'Cleanup failed';
+				return;
 			}
 			resetLocalState();
 		} catch (e) {
@@ -448,13 +453,14 @@ export function createImageSorterState(props: ImageSorterProps) {
 	}
 
 	async function abandonSession() {
-		if (!manifestId) return;
 		try {
-			await fetch('/api/manifest/abandon', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ manifestId }),
-			});
+			if (manifestId) {
+				await fetch('/api/manifest/abandon', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ manifestId }),
+				});
+			}
 			resetLocalState();
 			await loadSourceImages();
 		} catch (e) {
