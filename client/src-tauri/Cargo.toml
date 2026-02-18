@@ -1,6 +1,6 @@
 [package]
 name = "imagestore"
-version = "0.2.0"
+version = "0.3.9"
 description = "Medical image sorting and patient management"
 authors = ["JM <me@josephmyers.dev>"]
 license = ""
