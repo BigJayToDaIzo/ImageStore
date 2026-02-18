@@ -408,10 +408,10 @@ describe('sort-image', () => {
 
       const result = await batchCleanup(manifest, TEST_MANIFESTS);
 
-      expect(result.cleanedCount).toBe(1);
-      // Skipped image source should still exist
+      expect(result.cleanedCount).toBe(2);
+      // Skipped image source should also be deleted
       const skippedExists = await access(img2, constants.F_OK).then(() => true, () => false);
-      expect(skippedExists).toBe(true);
+      expect(skippedExists).toBe(false);
     });
 
     it('should re-verify destination hash before deleting source', async () => {

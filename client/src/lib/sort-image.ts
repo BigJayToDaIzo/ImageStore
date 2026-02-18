@@ -245,6 +245,25 @@ export async function batchCleanup(
     }
   }
 
+  // Delete skipped image sources
+  for (const image of manifest.images) {
+    if (image.status !== 'skipped') continue;
+
+    try {
+      const sourcePath = join(manifest.sourcePath, image.filename);
+      await unlink(sourcePath);
+      image.status = 'cleaned';
+      image.sourceDeleted = true;
+      cleanedCount++;
+    } catch (error) {
+      image.status = 'clean_failed';
+      image.sourceDeleted = false;
+      failedCount++;
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      warnings.push(`${image.filename}: ${msg}`);
+    }
+  }
+
   manifest.status = 'completed';
   await saveManifest(manifest, manifestDir);
 
