@@ -1,38 +1,12 @@
 import type { APIRoute } from 'astro';
-import { mkdir, writeFile, readFile, access, unlink, copyFile, constants } from 'node:fs/promises';
-import { join, extname } from 'node:path';
-import { findPatientByCase, createPatient } from '../../lib/patients';
+import { join } from 'node:path';
+import { access, writeFile, unlink, constants } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { loadSettings } from '../../lib/settings';
+import { getActiveManifest } from '../../lib/manifest';
+import { sortImage } from '../../lib/sort-image';
 
 export const prerender = false;
-
-interface SortImageRequest {
-  caseNumber: string;
-  consentStatus: 'no_consent' | 'consent';
-  consentType?: 'hipaa' | 'social_media';
-  procedureType: string;
-  surgeryDate: string;
-  imageType: string;
-  angle: string;
-  originalFilename: string;
-}
-
-function buildDestinationPath(data: SortImageRequest, destinationRoot: string): { dir: string; filename: string } {
-  const { caseNumber, consentStatus, consentType, procedureType, surgeryDate, imageType, angle, originalFilename } = data;
-
-  // Get file extension from original, default to .jpg
-  const ext = extname(originalFilename).toLowerCase() || '.jpg';
-
-  let basePath: string;
-  if (consentStatus === 'consent' && consentType) {
-    basePath = join(destinationRoot, 'consent', consentType, procedureType, surgeryDate, caseNumber);
-  } else {
-    basePath = join(destinationRoot, 'no_consent', procedureType, surgeryDate, caseNumber);
-  }
-
-  const filename = `${caseNumber}_${imageType}_${angle}${ext}`;
-  return { dir: basePath, filename };
-}
 
 export const POST: APIRoute = async ({ request }) => {
   try {
@@ -41,7 +15,7 @@ export const POST: APIRoute = async ({ request }) => {
     const formData = await request.formData();
 
     // Extract metadata
-    const metadata: SortImageRequest = {
+    const metadata = {
       caseNumber: formData.get('caseNumber') as string,
       consentStatus: formData.get('consentStatus') as 'no_consent' | 'consent',
       consentType: formData.get('consentType') as 'hipaa' | 'social_media' | undefined,
@@ -53,9 +27,9 @@ export const POST: APIRoute = async ({ request }) => {
     };
 
     // Validate required fields
-    const required = ['caseNumber', 'consentStatus', 'procedureType', 'surgeryDate', 'imageType', 'angle'];
+    const required = ['caseNumber', 'consentStatus', 'procedureType', 'surgeryDate', 'imageType', 'angle'] as const;
     for (const field of required) {
-      if (!metadata[field as keyof SortImageRequest]) {
+      if (!metadata[field]) {
         return new Response(JSON.stringify({ error: `Missing required field: ${field}` }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' }
@@ -131,68 +105,91 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // Resolve full source path (relative to sourceRoot or custom sourceRoot from folder picker)
+    // Resolve source path
     const customSourceRoot = formData.get('sourceRoot') as string | null;
     const sourceRoot = customSourceRoot || settings.sourceRoot;
-    const fullSourcePath = relativeSourcePath ? join(sourceRoot, relativeSourcePath) : null;
+    let sourcePath: string;
+    let tempFilePath: string | null = null;
 
-    // Verify source exists before creating destination directories
-    if (fullSourcePath) {
-      await access(fullSourcePath, constants.R_OK);
-    }
-
-    // Build destination path
-    const { dir, filename } = buildDestinationPath(metadata, destinationRoot);
-    const destPath = join(dir, filename);
-
-    // Create directory structure
-    await mkdir(dir, { recursive: true });
-
-    // Write file - either from upload or copy from source
-    if (file) {
+    if (relativeSourcePath) {
+      sourcePath = join(sourceRoot, relativeSourcePath);
+      await access(sourcePath, constants.R_OK);
+    } else if (file) {
+      // File upload: write to temp file, use as source
+      tempFilePath = join(tmpdir(), `imagestore-upload-${Date.now()}-${file.name}`);
       const buffer = Buffer.from(await file.arrayBuffer());
-      await writeFile(destPath, buffer);
-    } else if (fullSourcePath) {
-      await copyFile(fullSourcePath, destPath);
+      await writeFile(tempFilePath, buffer);
+      sourcePath = tempFilePath;
+    } else {
+      return new Response(JSON.stringify({ error: 'No file provided' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    // Verify write succeeded
-    await access(destPath, constants.F_OK);
+    // Get active manifest (optional — sort works without it)
+    const manifest = await getActiveManifest();
 
-    // Delete source file after successful copy
-    if (fullSourcePath) {
-      try {
-        await unlink(fullSourcePath);
-      } catch (deleteError) {
-        console.warn('Could not delete source file:', fullSourcePath, deleteError);
+    // Look up sourceHash from manifest if available
+    let sourceHash: string | undefined;
+    if (manifest) {
+      const manifestImage = manifest.images.find(img => img.filename === metadata.originalFilename);
+      if (manifestImage?.sourceHash) {
+        sourceHash = manifestImage.sourceHash;
       }
     }
 
-    // File write confirmed - now save patient data if provided
+    // Build patient data from form fields
     const firstName = formData.get('firstName') as string | null;
     const lastName = formData.get('lastName') as string | null;
     const dob = formData.get('dob') as string | null;
     const surgeon = formData.get('surgeon') as string | null;
 
-    if (firstName && lastName) {
-      const existing = await findPatientByCase(metadata.caseNumber);
-      if (!existing) {
-        await createPatient({
-          case_number: metadata.caseNumber,
-          first_name: firstName,
-          last_name: lastName,
-          dob: dob || '',
-          surgery_date: metadata.surgeryDate,
-          primary_procedure: metadata.procedureType,
-          surgeon: surgeon || ''
-        });
-      }
+    const patient = (firstName && lastName) ? {
+      firstName,
+      lastName,
+      dob: dob || undefined,
+      surgeon: surgeon || undefined,
+    } : undefined;
+
+    // Delegate to lib
+    const result = await sortImage({
+      metadata,
+      sourcePath,
+      destinationRoot,
+      sourceHash,
+      manifest: manifest ?? undefined,
+      patient,
+    });
+
+    // Clean up temp file if we created one
+    if (tempFilePath) {
+      try { await unlink(tempFilePath); } catch { /* best effort */ }
+    }
+
+    if (result.conflict) {
+      return new Response(JSON.stringify({
+        error: result.error,
+        conflict: true,
+      }), {
+        status: 409,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (!result.success) {
+      return new Response(JSON.stringify({
+        error: result.error || 'Failed to sort image',
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     return new Response(JSON.stringify({
       success: true,
-      destination: destPath,
-      filename
+      destination: result.destinationPath,
+      filename: result.filename,
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
