@@ -123,6 +123,9 @@ export function createImageSorterState(props: ImageSorterProps) {
 				// Session already active (race condition) — use it
 				const { manifest } = await createRes.json();
 				if (manifest) applyManifest(manifest);
+			} else {
+				const err = await createRes.json().catch(() => ({}));
+				console.error('Manifest create failed:', createRes.status, err);
 			}
 		} catch (e) {
 			console.error('Failed to init manifest:', e);
@@ -244,6 +247,14 @@ export function createImageSorterState(props: ImageSorterProps) {
 		const image = images[index];
 		if (!image) return;
 
+		if (!manifestId) {
+			// Local-only tracking when no server manifest
+			imageStatuses[image.name] = 'skipped';
+			imageStatuses = imageStatuses;
+			advanceToNextPending();
+			return;
+		}
+
 		try {
 			const res = await fetch('/api/manifest/image', {
 				method: 'PATCH',
@@ -262,6 +273,13 @@ export function createImageSorterState(props: ImageSorterProps) {
 	async function undoSkip(index: number) {
 		const image = images[index];
 		if (!image) return;
+
+		if (!manifestId) {
+			// Local-only tracking when no server manifest
+			imageStatuses[image.name] = 'pending';
+			imageStatuses = imageStatuses;
+			return;
+		}
 
 		try {
 			const res = await fetch('/api/manifest/image', {
@@ -503,9 +521,12 @@ export function createImageSorterState(props: ImageSorterProps) {
 					ctx.lineWidth = 4;
 					ctx.strokeRect(20, 20, 600, 440);
 
-					const blob: Blob = await new Promise((resolve) =>
-						canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.85)
-					);
+					const blob: Blob = await new Promise((resolve, reject) => {
+						canvas.toBlob(
+							(b) => b ? resolve(b) : reject(new Error('Canvas toBlob failed')),
+							'image/png'
+						);
+					});
 
 					const safeName = `practice_${patient.id}_${img.angle.toLowerCase()}_${img.type.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}.jpg`;
 					formData.append('images', blob, safeName);

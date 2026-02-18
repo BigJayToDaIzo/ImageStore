@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, readdir, rename, access, constants } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, rename, access, constants, unlink } from 'node:fs/promises';
 import { join, extname } from 'node:path';
 import { hashFile } from './hash';
 import { getDataDir } from './settings';
@@ -259,4 +259,17 @@ export async function abandonManifest(manifest: Manifest, manifestDir?: string):
   manifest.status = 'abandoned';
   await saveManifest(manifest, manifestDir);
   return manifest;
+}
+
+/**
+ * Delete a manifest file from disk.
+ */
+export async function deleteManifestFile(id: string, manifestDir?: string): Promise<void> {
+  const dir = manifestDir ?? await getManifestDir();
+  const filePath = join(dir, manifestFilename(id));
+  try {
+    await unlink(filePath);
+  } catch {
+    // Already deleted or never existed
+  }
 }

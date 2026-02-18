@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { getActiveManifest } from '../../../lib/manifest';
+import { getActiveManifest, deleteManifestFile } from '../../../lib/manifest';
 import { batchCleanup } from '../../../lib/sort-image';
 
 export const prerender = false;
@@ -22,6 +22,7 @@ export const POST: APIRoute = async () => {
     }
 
     const result = await batchCleanup(manifest);
+    await deleteManifestFile(manifest.id);
 
     return new Response(JSON.stringify(result), {
       status: 200,
