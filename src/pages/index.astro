@@ -9,10 +9,20 @@ import AppContainer from '../components/AppContainer.svelte';
 			<h1 class="logo"><img src="/favicon.svg" alt="" class="logo-icon" />ImageStore</h1>
 		</header>
 
+		<div id="browser-warning" class="browser-warning" hidden>
+			<strong>Unsupported browser.</strong> ImageStore requires the File System Access API, which your browser doesn't support. Please use a Chromium-based browser like <a href="https://helium.computer/">Helium</a>, Chrome, Edge, or Arc.
+		</div>
+
 		<main class="main">
 			<AppContainer client:only="svelte" />
 		</main>
 	</div>
+
+	<script is:inline>
+		if (!window.showDirectoryPicker) {
+			document.getElementById('browser-warning').hidden = false;
+		}
+	</script>
 </Layout>
 
 <style>
@@ -47,5 +57,19 @@ import AppContainer from '../components/AppContainer.svelte';
 		flex: 1;
 		display: flex;
 		overflow: hidden;
+	}
+
+	.browser-warning {
+		padding: 1rem 1.25rem;
+		background: #fef2f2;
+		border-bottom: 1px solid #fca5a5;
+		color: #991b1b;
+		text-align: center;
+		line-height: 1.5;
+	}
+
+	.browser-warning a {
+		color: #991b1b;
+		font-weight: 600;
 	}
 </style>
