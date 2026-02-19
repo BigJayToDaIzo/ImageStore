@@ -1,0 +1,3 @@
+*.map
+_worker.js
+_routes.json

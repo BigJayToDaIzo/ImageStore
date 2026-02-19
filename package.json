@@ -1,0 +1,27 @@
+{
+  "name": "imagestore",
+  "type": "module",
+  "version": "0.3.10",
+  "description": "Medical image sorting and patient management",
+  "author": "JM <me@josephmyers.dev>",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro build && wrangler dev",
+    "deploy": "astro build && wrangler deploy",
+    "cf-typegen": "wrangler types",
+    "astro": "astro",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@astrojs/svelte": "^7.2.5",
+    "astro": "5.17.1",
+    "libheif-js": "^1.19.8",
+    "svelte": "^5.48.5",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/wicg-file-system-access": "^2023.10.7",
+    "wrangler": "^4.67.0"
+  }
+}
