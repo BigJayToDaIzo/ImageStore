@@ -1,0 +1,17 @@
+{
+  "name": "imagestore",
+  "account_id": "<your-account-id>",
+  "assets": {
+    "directory": "./dist"
+  },
+  "compatibility_date": "2026-02-19",
+  "routes": [
+    {
+      "pattern": "imagestore.ariacosmeticsurgery.com",
+      "custom_domain": true
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
