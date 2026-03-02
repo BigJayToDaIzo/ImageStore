@@ -3,13 +3,19 @@ import type { Surgeon } from './types';
 
 const IDB_KEY = 'list';
 
+const DEFAULT_SURGEONS: Surgeon[] = [
+  { id: 'porshinsky', name: 'Dr. Brian Porshinsky' },
+  { id: 'shatz', name: 'Dr. Richard Shatz' },
+  { id: 'valenzuela', name: 'Dr. Pio Valenzuela' },
+];
+
 export async function loadSurgeons(): Promise<Surgeon[]> {
   const stored = await idbGet<Surgeon[]>('surgeons', IDB_KEY);
   if (stored) return stored;
 
-  // First load — seed empty
-  await saveSurgeons([]);
-  return [];
+  // First load — seed defaults
+  await saveSurgeons(DEFAULT_SURGEONS);
+  return [...DEFAULT_SURGEONS];
 }
 
 export async function saveSurgeons(list: Surgeon[]): Promise<void> {

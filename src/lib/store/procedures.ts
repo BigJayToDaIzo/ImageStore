@@ -4,11 +4,27 @@ import type { Procedure } from './types';
 const IDB_KEY = 'list';
 
 const DEFAULT_PROCEDURES: Procedure[] = [
+  // Facial
   { id: 'rhinoplasty', name: 'Rhinoplasty', favorite: true },
   { id: 'facelift', name: 'Facelift', favorite: true },
   { id: 'blepharoplasty', name: 'Blepharoplasty', favorite: true },
+  { id: 'brow_lift', name: 'Brow Lift', favorite: false },
+  { id: 'buccal_fat_removal', name: 'Buccal Fat Removal', favorite: false },
+  { id: 'chin_liposuction', name: 'Chin Liposuction', favorite: false },
+  { id: 'morpheus8', name: 'Morpheus8', favorite: false },
+  { id: 'neck_lift', name: 'Neck Lift', favorite: false },
+  // Breast
   { id: 'breast_augmentation', name: 'Breast Augmentation', favorite: true },
-  { id: 'liposuction', name: 'Liposuction', favorite: true },
+  { id: 'breast_lift', name: 'Breast Lift', favorite: false },
+  { id: 'breast_reduction', name: 'Breast Reduction', favorite: false },
+  // Body
+  { id: 'arm_lift', name: 'Arm Lift', favorite: false },
+  { id: 'bbl', name: 'BBL', favorite: true },
+  { id: 'mommy_makeover', name: 'Mommy Makeover', favorite: false },
+  { id: 'non_surgical_tummy_tuck', name: 'Non-Surgical Tummy Tuck', favorite: false },
+  { id: 'thigh_lift', name: 'Thigh Lift', favorite: false },
+  { id: 'tummy_tuck', name: 'Tummy Tuck', favorite: true },
+  { id: 'vaser_lipo_360', name: 'Vaser Lipo 360', favorite: true },
 ];
 
 export async function loadProcedures(): Promise<Procedure[]> {

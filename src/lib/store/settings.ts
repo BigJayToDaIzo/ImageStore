@@ -9,7 +9,7 @@ const DEFAULT_SETTINGS: Settings = {
     imageType: 'pre_op',
     angle: 'front',
     defaultPatientAge: 33,
-    surgeon: '',
+    surgeon: 'porshinsky',
   },
 };
 

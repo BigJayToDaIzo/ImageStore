@@ -1,6 +1,6 @@
 {
   "name": "imagestore",
-  "account_id": "<your-account-id>",
+  "account_id": "01c09dda091f2fb961682b7ff1baa2e1",
   "assets": {
     "directory": "./dist"
   },
