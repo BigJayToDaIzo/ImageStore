@@ -7,22 +7,24 @@ HIPAA-compliant medical image management for cosmetic surgery practices.
 ```bash
 bun install          # Install dependencies
 bun run dev          # Start dev server at localhost:4321
+bun run preview      # Build + run in Wrangler (Cloudflare emulator)
+bun test             # Run tests
 ```
 
-## Building Desktop App
+**Requires Chrome** — File System Access API is not supported in Firefox or Safari at this time.
+
+## Deployment
 
 ```bash
-bun run tauri:build                    # Build for current platform
-bun run tauri:build --bundles appimage # Linux AppImage
+bun run deploy       # Build + push to Cloudflare Pages
 ```
-
-CI builds all platforms (Linux, Windows, Mac ARM, Mac Intel) on tag push.
 
 ## Tech Stack
 
-- **Frontend:** Astro + Svelte 5
-- **Desktop:** Tauri 2
-- **Runtime:** Bun (dev), Node 22 (bundled sidecar)
+- **Frontend:** Astro 5 + Svelte 5
+- **Storage:** File System Access API + IndexedDB
+- **Hosting:** Cloudflare Pages
+- **Runtime:** Bun
 
 ## Documentation
 
