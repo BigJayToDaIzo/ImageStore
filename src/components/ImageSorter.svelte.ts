@@ -1,11 +1,13 @@
+import { untrack } from 'svelte';
 import { listSourceImages, getImageObjectURL, revokeAllObjectURLs } from '$lib/store/source-images.js';
-import { createManifest, getCurrentManifest, updateImageStatus, abandonManifest, getManifest } from '$lib/store/manifest.js';
+import { createManifest, saveManifest, getCurrentManifest, updateImageStatus, abandonManifest, getManifest } from '$lib/store/manifest.js';
 import { batchCleanup } from '$lib/store/sort-image.js';
 import type { Manifest, SourceImage } from '$lib/store/types.js';
 
-interface ImageEntry {
+export interface ImageEntry {
 	name: string;
-	src: string;
+	thumbSrc: string | null;
+	previewSrc: string | null;
 	handle: FileSystemFileHandle;
 }
 
@@ -41,19 +43,28 @@ export function createImageSorterState(props: ImageSorterProps) {
 	// Track the last sourceHandle we loaded from, to avoid re-loading
 	let lastLoadedHandle = $state<FileSystemDirectoryHandle | null>(null);
 
+	// Incremental status counters — one O(n) pass instead of three $derived scans
+	let statusCounts = $state({ sorted: 0, skipped: 0, pending: 0, sorting: 0, error: 0 });
+
+	function computeCountsFromStatuses() {
+		const counts = { sorted: 0, skipped: 0, pending: 0, sorting: 0, error: 0 };
+		for (const img of images) {
+			const s = imageStatuses[img.name];
+			if (s === 'sorted') counts.sorted++;
+			else if (s === 'skipped') counts.skipped++;
+			else if (s === 'sorting') counts.sorting++;
+			else if (s === 'error') counts.error++;
+			else counts.pending++;
+		}
+		statusCounts = counts;
+	}
+
 	let previewImage = $derived(
 		hoveredIndex >= 0 ? images[hoveredIndex] : images[selectedIndex]
 	);
 
-	let sortedCount = $derived(Object.values(imageStatuses).filter(s => s === 'sorted').length);
-	let skippedCount = $derived(Object.values(imageStatuses).filter(s => s === 'skipped').length);
-	let pendingCount = $derived(images.length - sortedCount - skippedCount);
 	let isSessionComplete = $derived(
-		images.length > 0 &&
-		images.every((img: ImageEntry) => {
-			const s = imageStatuses[img.name];
-			return s && s !== 'pending' && s !== 'sorting';
-		})
+		images.length > 0 && statusCounts.pending === 0 && statusCounts.sorting === 0
 	);
 
 	// Load images when sourceHandle changes or tab becomes active
@@ -65,6 +76,17 @@ export function createImageSorterState(props: ImageSorterProps) {
 		}
 	});
 
+	// Eagerly load preview URL when selection/hover changes
+	$effect(() => {
+		const idx = hoveredIndex >= 0 ? hoveredIndex : selectedIndex;
+		const len = images.length;
+		untrack(() => {
+			if (idx >= 0 && idx < len) {
+				ensureURL(idx);
+			}
+		});
+	});
+
 	// Auto-show completion modal when all images are processed
 	$effect(() => {
 		if (isSessionComplete && !completeModalShown) {
@@ -72,6 +94,21 @@ export function createImageSorterState(props: ImageSorterProps) {
 			completeModalShown = true;
 		}
 	});
+
+	async function ensureURL(index: number, options?: { thumbnail?: boolean }): Promise<void> {
+		const entry = images[index];
+		if (!entry?.handle) return;
+
+		if (options?.thumbnail) {
+			if (entry.thumbSrc) return;
+			const url = await getImageObjectURL(entry.handle, { maxDimension: 400 });
+			entry.thumbSrc = url;
+		} else {
+			if (entry.previewSrc) return;
+			const url = await getImageObjectURL(entry.handle);
+			entry.previewSrc = url;
+		}
+	}
 
 	async function loadSourceImages(sourceHandle: FileSystemDirectoryHandle) {
 		isLoading = true;
@@ -84,17 +121,20 @@ export function createImageSorterState(props: ImageSorterProps) {
 				folderPath = sourceHandle.name;
 				lastLoadedHandle = sourceHandle;
 
-				// Build image entries with object URLs
-				const entries: ImageEntry[] = [];
-				for (const img of sourceImages) {
-					const src = await getImageObjectURL(img.handle);
-					entries.push({ name: img.name, src, handle: img.handle });
-				}
-				images = entries;
+				// Populate immediately with null URLs — UI renders placeholders
+				images = sourceImages.map(img => ({
+					name: img.name,
+					thumbSrc: null,
+					previewSrc: null,
+					handle: img.handle,
+				}));
 				selectedIndex = 0;
 
+				// Eagerly load the first preview so it's visible when loading spinner clears
+				await ensureURL(0);
+
 				// Create or resume manifest session
-				await initManifest(sourceHandle);
+				await initManifest(sourceImages);
 			} else {
 				folderPath = sourceHandle.name;
 				lastLoadedHandle = sourceHandle;
@@ -109,7 +149,7 @@ export function createImageSorterState(props: ImageSorterProps) {
 		}
 	}
 
-	async function initManifest(sourceHandle: FileSystemDirectoryHandle) {
+	async function initManifest(sourceImages: SourceImage[]) {
 		try {
 			// Look for an existing active manifest
 			const existing = await getCurrentManifest();
@@ -118,8 +158,9 @@ export function createImageSorterState(props: ImageSorterProps) {
 				return;
 			}
 
-			// No existing manifest — create one
-			const manifest = await createManifest(sourceHandle);
+			// No existing manifest — create one (synchronous, no hashing)
+			const manifest = createManifest(sourceImages);
+			await saveManifest(manifest);
 			applyManifest(manifest);
 		} catch (e) {
 			loadError = e instanceof Error ? e.message : 'Failed to initialize session';
@@ -133,6 +174,7 @@ export function createImageSorterState(props: ImageSorterProps) {
 		for (const img of manifest.images) {
 			imageStatuses[img.filename] = img.status;
 		}
+		computeCountsFromStatuses();
 		advanceToNextPending();
 	}
 
@@ -155,6 +197,7 @@ export function createImageSorterState(props: ImageSorterProps) {
 					newStatuses[img.filename] = img.status;
 				}
 				imageStatuses = newStatuses;
+				computeCountsFromStatuses();
 			}
 		} catch (e) {
 			console.error('Failed to refresh manifest:', e);
@@ -204,8 +247,14 @@ export function createImageSorterState(props: ImageSorterProps) {
 	function handleImageSorted() {
 		const sortedImage = images[selectedIndex];
 		if (sortedImage) {
+			const oldStatus = imageStatuses[sortedImage.name];
 			imageStatuses[sortedImage.name] = 'sorted';
 			imageStatuses = imageStatuses;
+
+			// Incremental count update for instant UI feedback
+			if (oldStatus === 'sorting') statusCounts.sorting--;
+			else if (!oldStatus || oldStatus === 'pending') statusCounts.pending--;
+			statusCounts.sorted++;
 		}
 
 		advanceToNextPending();
@@ -219,6 +268,7 @@ export function createImageSorterState(props: ImageSorterProps) {
 		if (!manifestId) {
 			imageStatuses[image.name] = 'skipped';
 			imageStatuses = imageStatuses;
+			computeCountsFromStatuses();
 			advanceToNextPending();
 			return;
 		}
@@ -238,6 +288,7 @@ export function createImageSorterState(props: ImageSorterProps) {
 		if (!manifestId) {
 			imageStatuses[image.name] = 'pending';
 			imageStatuses = imageStatuses;
+			computeCountsFromStatuses();
 			return;
 		}
 
@@ -262,6 +313,7 @@ export function createImageSorterState(props: ImageSorterProps) {
 		showCompleteModal = false;
 		completeModalShown = false;
 		lastLoadedHandle = null;
+		statusCounts = { sorted: 0, skipped: 0, pending: 0, sorting: 0, error: 0 };
 		revokeAllObjectURLs();
 		props.getCaseNumberInputRef()?.resetForm();
 	}
@@ -380,7 +432,7 @@ export function createImageSorterState(props: ImageSorterProps) {
 
 					const safeName = `practice_${patient.id}_${img.angle.toLowerCase()}_${img.type.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}.png`;
 					const src = URL.createObjectURL(blob);
-					practiceImages.push({ name: safeName, src, handle: null as any });
+					practiceImages.push({ name: safeName, thumbSrc: src, previewSrc: src, handle: null as any });
 				}
 			}
 
@@ -400,6 +452,7 @@ export function createImageSorterState(props: ImageSorterProps) {
 				imageStatuses[img.name] = 'pending';
 			}
 			imageStatuses = imageStatuses;
+			statusCounts = { sorted: 0, skipped: 0, pending: practiceImages.length, sorting: 0, error: 0 };
 
 		} catch (e) {
 			console.error('Practice session failed:', e);
@@ -426,9 +479,9 @@ export function createImageSorterState(props: ImageSorterProps) {
 		get manifestId() { return manifestId; },
 		get manifestStatus() { return manifestStatus; },
 		get imageStatuses() { return imageStatuses; },
-		get sortedCount() { return sortedCount; },
-		get skippedCount() { return skippedCount; },
-		get pendingCount() { return pendingCount; },
+		get sortedCount() { return statusCounts.sorted; },
+		get skippedCount() { return statusCounts.skipped; },
+		get pendingCount() { return images.length - statusCounts.sorted - statusCounts.skipped; },
 		get isSessionComplete() { return isSessionComplete; },
 		get showCompleteModal() { return showCompleteModal; },
 		get isPracticeLoading() { return isPracticeLoading; },
@@ -445,5 +498,6 @@ export function createImageSorterState(props: ImageSorterProps) {
 		handleModalCancel,
 		skipImage,
 		undoSkip,
+		ensureURL,
 	};
 }

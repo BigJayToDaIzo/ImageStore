@@ -83,6 +83,7 @@ export async function sortImage(
   if (options?.manifestId) {
     await updateImageStatus(options.manifestId, formData.originalFilename, {
       status: 'sorted',
+      sourceHash,
       destinationSegments: segments,
       destinationFilename: destFilename,
       destinationHash: sourceHash,

@@ -41,7 +41,7 @@ export type ManifestStatus = 'in_progress' | 'confirming' | 'cleaning' | 'comple
 
 export interface ManifestImage {
   filename: string;
-  sourceHash: string;
+  sourceHash: string | null;
   status: ImageStatus;
   destinationSegments: string[] | null;
   destinationFilename: string | null;

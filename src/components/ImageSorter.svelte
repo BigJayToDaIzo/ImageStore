@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CaseNumberInput from './CaseNumberInput/CaseNumberInput.svelte';
+	import LazyThumbnail from './LazyThumbnail.svelte';
 	import { createImageSorterState } from './ImageSorter.svelte.ts';
 
 	let {
@@ -34,8 +35,8 @@
 	<!-- Left half: Preview image + Thumbnails -->
 	<section class="left-panel">
 		<div class="preview-area">
-			{#if state.previewImage}
-				<img src={state.previewImage.src} alt={state.previewImage.name} />
+			{#if state.previewImage?.previewSrc || state.previewImage?.thumbSrc}
+				<img src={state.previewImage.previewSrc ?? state.previewImage.thumbSrc} alt={state.previewImage.name} />
 			{:else if state.isLoading}
 				<div class="empty-state">
 					<p>Loading source images...</p>
@@ -67,29 +68,20 @@
 				</div>
 				<div class="thumbnail-grid-wrapper" bind:this={thumbnailWrapper}>
 					<div class="thumbnail-grid">
-						{#each state.images as image, index}
-							<button
-								class="thumbnail"
-								class:selected={index === state.selectedIndex}
-								class:sorted={state.imageStatuses[image.name] === 'sorted'}
-								class:skipped={state.imageStatuses[image.name] === 'skipped'}
-								class:errored={state.imageStatuses[image.name] === 'error'}
-								onclick={() => state.selectImage(index)}
+						{#each state.images as image, index (image.name)}
+							<LazyThumbnail
+								{image}
+								{index}
+								status={state.imageStatuses[image.name]}
+								isSelected={index === state.selectedIndex}
+								ensureURL={state.ensureURL}
+								onselect={() => state.selectImage(index)}
 								onkeydown={(e) => state.handleKeydown(e, index)}
 								onmouseenter={() => state.hoveredIndex = index}
 								onmouseleave={() => state.hoveredIndex = -1}
-								type="button"
-							>
-								<img src={image.src} alt={image.name} />
-								<span class="filename">{image.name}</span>
-								{#if state.imageStatuses[image.name] === 'sorted'}
-									<span class="status-badge sorted-badge">&#10003;</span>
-								{:else if state.imageStatuses[image.name] === 'skipped'}
-									<button class="status-badge undo-badge" type="button" onclick={(e) => { e.stopPropagation(); state.undoSkip(index); }} title="Undo skip">&#8630;</button>
-								{:else if state.imageStatuses[image.name] !== 'error'}
-									<button class="status-badge skip-badge" type="button" onclick={(e) => { e.stopPropagation(); state.skipImage(index); }} title="Skip image">&#10005;</button>
-								{/if}
-							</button>
+								onskip={() => state.skipImage(index)}
+								onundoskip={() => state.undoSkip(index)}
+							/>
 						{/each}
 					</div>
 				</div>
@@ -409,60 +401,6 @@
 		padding: 0.75rem;
 	}
 
-	.thumbnail {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		width: 100px;
-		padding: 0.375rem;
-		background: #f8f8f8;
-		border: 2px solid transparent;
-		border-radius: 4px;
-		cursor: pointer;
-		transition: border-color 0.15s, background 0.15s;
-	}
-
-	.thumbnail:hover {
-		background: #f0f0f0;
-	}
-
-	.thumbnail.selected {
-		border-color: #2563eb;
-		background: #eff6ff;
-	}
-
-	.thumbnail.sorted {
-		border-color: #16a34a;
-		opacity: 0.7;
-	}
-
-	.thumbnail.skipped {
-		border-color: #9ca3af;
-		opacity: 0.4;
-	}
-
-	.thumbnail.errored {
-		border-color: #dc2626;
-	}
-
-	.thumbnail img {
-		width: 100%;
-		aspect-ratio: 1;
-		object-fit: cover;
-		border-radius: 2px;
-		background: #e5e5e5;
-	}
-
-	.filename {
-		margin-top: 0.375rem;
-		font-size: 0.6875rem;
-		color: #555;
-		text-overflow: ellipsis;
-		overflow: hidden;
-		white-space: nowrap;
-		max-width: 100%;
-	}
-
 	/* Right panel: Form */
 	.form-panel {
 		flex: 1;
@@ -544,55 +482,4 @@
 		background: #f0f0f0;
 	}
 
-	/* Status badges on thumbnails */
-	.thumbnail {
-		position: relative;
-	}
-
-	.status-badge {
-		position: absolute;
-		top: 2px;
-		right: 2px;
-		width: 18px;
-		height: 18px;
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 0.6875rem;
-		line-height: 1;
-		border: none;
-		padding: 0;
-	}
-
-	.sorted-badge {
-		background: #16a34a;
-		color: white;
-	}
-
-	.skip-badge {
-		background: #9ca3af;
-		color: white;
-		cursor: pointer;
-		opacity: 0;
-		transition: opacity 0.15s;
-	}
-
-	.thumbnail:hover .skip-badge {
-		opacity: 1;
-	}
-
-	.skip-badge:hover {
-		background: #6b7280;
-	}
-
-	.undo-badge {
-		background: #9ca3af;
-		color: white;
-		cursor: pointer;
-	}
-
-	.undo-badge:hover {
-		background: #6b7280;
-	}
 </style>

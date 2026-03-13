@@ -1,10 +1,6 @@
 import { idbGet, idbSet, idbGetAllKeys } from './idb';
-import { hashFile } from './hash';
-import { isImageFile } from '../util/image-utils';
 import { allImagesProcessed } from '../util/manifest-utils';
-import type { Manifest, ManifestImage, ImageStatus, ManifestStatus } from './types';
-
-const CONCURRENCY_LIMIT = 4;
+import type { Manifest, ManifestImage, ImageStatus, SourceImage } from './types';
 
 function generateId(): string {
   const now = new Date();
@@ -13,52 +9,14 @@ function generateId(): string {
   return `${timestamp}${ms}`;
 }
 
-async function hashWithConcurrency(
-  handles: FileSystemFileHandle[],
-): Promise<Map<string, string>> {
-  const results = new Map<string, string>();
-  let index = 0;
-
-  async function worker(): Promise<void> {
-    while (index < handles.length) {
-      const i = index++;
-      const handle = handles[i];
-      const hash = await hashFile(handle);
-      results.set(handle.name, hash);
-    }
-  }
-
-  const workers: Promise<void>[] = [];
-  for (let i = 0; i < Math.min(CONCURRENCY_LIMIT, handles.length); i++) {
-    workers.push(worker());
-  }
-  await Promise.all(workers);
-
-  return results;
-}
-
-export async function createManifest(
-  sourceHandle: FileSystemDirectoryHandle,
-): Promise<Manifest> {
-  const fileHandles: FileSystemFileHandle[] = [];
-
-  for await (const entry of sourceHandle.values()) {
-    if (entry.kind === 'file' && isImageFile(entry.name)) {
-      fileHandles.push(entry as FileSystemFileHandle);
-    }
-  }
-
-  if (fileHandles.length === 0) {
+export function createManifest(sourceImages: SourceImage[]): Manifest {
+  if (sourceImages.length === 0) {
     throw new Error('No image files found in source directory');
   }
 
-  fileHandles.sort((a, b) => a.name.localeCompare(b.name));
-
-  const hashes = await hashWithConcurrency(fileHandles);
-
-  const images: ManifestImage[] = fileHandles.map(handle => ({
-    filename: handle.name,
-    sourceHash: hashes.get(handle.name)!,
+  const images: ManifestImage[] = sourceImages.map(img => ({
+    filename: img.name,
+    sourceHash: null,
     status: 'pending' as ImageStatus,
     destinationSegments: null,
     destinationFilename: null,
@@ -76,7 +34,6 @@ export async function createManifest(
     images,
   };
 
-  await saveManifest(manifest);
   return manifest;
 }
 
@@ -105,6 +62,7 @@ export async function getCurrentManifest(): Promise<Manifest | null> {
 
 export interface ImageStatusUpdate {
   status: ImageStatus;
+  sourceHash?: string | null;
   destinationSegments?: string[] | null;
   destinationFilename?: string | null;
   destinationHash?: string | null;
@@ -125,6 +83,7 @@ export async function updateImageStatus(
   if (!image) throw new Error(`Image "${filename}" not found in manifest ${manifestId}`);
 
   image.status = update.status;
+  if (update.sourceHash !== undefined) image.sourceHash = update.sourceHash ?? null;
   if (update.destinationSegments !== undefined) image.destinationSegments = update.destinationSegments ?? null;
   if (update.destinationFilename !== undefined) image.destinationFilename = update.destinationFilename ?? null;
   if (update.destinationHash !== undefined) image.destinationHash = update.destinationHash ?? null;

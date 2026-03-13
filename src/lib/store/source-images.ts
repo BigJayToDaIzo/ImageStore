@@ -18,7 +18,7 @@ function getLibheif() {
   return libheifPromise;
 }
 
-async function decodeHeicToObjectURL(file: File): Promise<string> {
+async function decodeHeicToObjectURL(file: File, maxDimension?: number): Promise<string> {
   const libheif = await getLibheif();
   const buffer = new Uint8Array(await file.arrayBuffer());
 
@@ -32,11 +32,12 @@ async function decodeHeicToObjectURL(file: File): Promise<string> {
   const width = image.get_width();
   const height = image.get_height();
 
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d')!;
-  const imageData = ctx.createImageData(width, height);
+  // Decode at full resolution into a temporary canvas for display() call
+  const srcCanvas = document.createElement('canvas');
+  srcCanvas.width = width;
+  srcCanvas.height = height;
+  const srcCtx = srcCanvas.getContext('2d')!;
+  const imageData = srcCtx.createImageData(width, height);
 
   await new Promise<void>((resolve, reject) => {
     image.display(imageData, (result: any) => {
@@ -45,10 +46,25 @@ async function decodeHeicToObjectURL(file: File): Promise<string> {
     });
   });
 
-  ctx.putImageData(imageData, 0, 0);
+  srcCtx.putImageData(imageData, 0, 0);
+
+  // Optionally downscale for thumbnails
+  let outCanvas: HTMLCanvasElement;
+  if (maxDimension && (width > maxDimension || height > maxDimension)) {
+    const scale = maxDimension / Math.max(width, height);
+    const outWidth = Math.round(width * scale);
+    const outHeight = Math.round(height * scale);
+    outCanvas = document.createElement('canvas');
+    outCanvas.width = outWidth;
+    outCanvas.height = outHeight;
+    const outCtx = outCanvas.getContext('2d')!;
+    outCtx.drawImage(srcCanvas, 0, 0, outWidth, outHeight);
+  } else {
+    outCanvas = srcCanvas;
+  }
 
   const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
+    outCanvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error('Canvas toBlob failed'))),
       'image/jpeg',
       0.85,
@@ -73,12 +89,15 @@ export async function listSourceImages(
   return images;
 }
 
-export async function getImageObjectURL(handle: FileSystemFileHandle): Promise<string> {
+export async function getImageObjectURL(
+  handle: FileSystemFileHandle,
+  options?: { maxDimension?: number },
+): Promise<string> {
   const file = await handle.getFile();
 
   let url: string;
   if (isHeic(file.name)) {
-    url = await decodeHeicToObjectURL(file);
+    url = await decodeHeicToObjectURL(file, options?.maxDimension);
   } else {
     url = URL.createObjectURL(file);
   }
