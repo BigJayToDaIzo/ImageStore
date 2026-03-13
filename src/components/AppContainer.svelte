@@ -7,10 +7,18 @@
 	let activeTab = $state('sort');
 	let sourceHandle = $state<FileSystemDirectoryHandle | null>(null);
 	let destHandle = $state<FileSystemDirectoryHandle | null>(null);
+
+	let connectionBar: { setSourceConnected: (h: FileSystemDirectoryHandle) => void };
+
+	function handlePracticeSourceConnected(h: FileSystemDirectoryHandle) {
+		sourceHandle = h;
+		connectionBar?.setSourceConnected(h);
+	}
 </script>
 
 <div class="app-container">
 	<DirectoryConnectionBar
+		bind:this={connectionBar}
 		onSourceConnected={(h) => sourceHandle = h}
 		onDestConnected={(h) => destHandle = h}
 	/>
@@ -49,7 +57,7 @@
 	</nav>
 
 	<div class="tab-content tab-sort" class:hidden={activeTab !== 'sort'}>
-		<ImageSorter active={activeTab === 'sort'} {sourceHandle} {destHandle} />
+		<ImageSorter active={activeTab === 'sort'} {sourceHandle} {destHandle} onSourceConnected={handlePracticeSourceConnected} />
 	</div>
 	<div class="tab-content tab-patients" class:hidden={activeTab !== 'patients'}>
 		<PatientsTable active={activeTab === 'patients'} {destHandle} />

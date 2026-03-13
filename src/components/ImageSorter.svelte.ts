@@ -2,6 +2,7 @@ import { untrack } from 'svelte';
 import { listSourceImages, getImageObjectURL, revokeAllObjectURLs } from '$lib/store/source-images.js';
 import { createManifest, saveManifest, getCurrentManifest, updateImageStatus, abandonManifest, getManifest } from '$lib/store/manifest.js';
 import { batchCleanup } from '$lib/store/sort-image.js';
+import { pickDirectory, persistHandle } from '$lib/store/fs-handles.js';
 import type { Manifest, SourceImage } from '$lib/store/types.js';
 
 export interface ImageEntry {
@@ -16,6 +17,7 @@ interface ImageSorterProps {
 	isActive: () => boolean;
 	getSourceHandle: () => FileSystemDirectoryHandle | null;
 	getDestHandle: () => FileSystemDirectoryHandle | null;
+	onSourceConnected?: (handle: FileSystemDirectoryHandle) => void;
 }
 
 export function createImageSorterState(props: ImageSorterProps) {
@@ -367,8 +369,23 @@ export function createImageSorterState(props: ImageSorterProps) {
 	}
 
 	async function generatePracticeSession() {
+		const destHandle = props.getDestHandle();
+		if (!destHandle) {
+			loadError = 'Connect a destination directory before starting practice';
+			return;
+		}
+
 		isPracticeLoading = true;
 		try {
+			// Abandon any existing manifest before starting fresh
+			if (manifestId) {
+				await abandonManifest(manifestId);
+			}
+			resetLocalState();
+
+			// User picks the practice directory
+			const practiceDir = await pickDirectory();
+
 			const patients = [
 				{
 					id: '101', label: 'Practice 101',
@@ -397,9 +414,7 @@ export function createImageSorterState(props: ImageSorterProps) {
 				},
 			];
 
-			// Generate practice images as in-memory blob URLs
-			const practiceImages: ImageEntry[] = [];
-
+			// Generate canvas blobs and write as real files to the practice directory
 			for (const patient of patients) {
 				for (const img of patient.images) {
 					const canvas = document.createElement('canvas');
@@ -431,30 +446,18 @@ export function createImageSorterState(props: ImageSorterProps) {
 					});
 
 					const safeName = `practice_${patient.id}_${img.angle.toLowerCase()}_${img.type.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}.png`;
-					const src = URL.createObjectURL(blob);
-					practiceImages.push({ name: safeName, thumbSrc: src, previewSrc: src, handle: null as any });
+					const fileHandle = await practiceDir.getFileHandle(safeName, { create: true });
+					const writable = await fileHandle.createWritable();
+					await writable.write(blob);
+					await writable.close();
 				}
 			}
 
-			revokeAllObjectURLs();
-			images = practiceImages;
-			folderPath = 'Practice Session';
-			selectedIndex = 0;
-			hoveredIndex = -1;
-			manifestId = null;
-			manifestStatus = null;
-			imageStatuses = {};
-			showCompleteModal = false;
-			completeModalShown = false;
-
-			// Set up local-only statuses for practice
-			for (const img of practiceImages) {
-				imageStatuses[img.name] = 'pending';
-			}
-			imageStatuses = imageStatuses;
-			statusCounts = { sorted: 0, skipped: 0, pending: practiceImages.length, sorting: 0, error: 0 };
-
+			// Persist as the source directory — the $effect picks up the handle change
+			await persistHandle('source', practiceDir);
+			props.onSourceConnected?.(practiceDir);
 		} catch (e) {
+			if (e instanceof DOMException && e.name === 'AbortError') return;
 			console.error('Practice session failed:', e);
 			loadError = e instanceof Error ? e.message : 'Practice session failed';
 		} finally {

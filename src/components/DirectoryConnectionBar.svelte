@@ -23,6 +23,12 @@
 	let sourceError = $state('');
 	let destError = $state('');
 
+	export function setSourceConnected(handle: FileSystemDirectoryHandle) {
+		sourceInfo = { handle, name: handle.name };
+		sourceState = 'connected';
+		sourceError = '';
+	}
+
 	// Stored handle names (from IDB, before permission granted)
 	let storedSourceName = $state('');
 	let storedDestName = $state('');

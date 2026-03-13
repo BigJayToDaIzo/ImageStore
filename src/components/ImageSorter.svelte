@@ -7,10 +7,12 @@
 		active = true,
 		sourceHandle = null,
 		destHandle = null,
+		onSourceConnected,
 	}: {
 		active?: boolean;
 		sourceHandle?: FileSystemDirectoryHandle | null;
 		destHandle?: FileSystemDirectoryHandle | null;
+		onSourceConnected?: (h: FileSystemDirectoryHandle) => void;
 	} = $props();
 
 	let caseNumberInputRef: { resetForm: () => void } | undefined;
@@ -21,6 +23,7 @@
 		isActive: () => active,
 		getSourceHandle: () => sourceHandle,
 		getDestHandle: () => destHandle,
+		onSourceConnected,
 	});
 
 	$effect(() => {
